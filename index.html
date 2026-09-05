@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>תרגול משחק היד - ברוכים הבאים</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-a: #237a4c;
+    --bg-b: #1a5d37;
+    --panel-bg: #f3ecfd;
+    --panel-border: #c9a227;
+    --gold: #c9a227;
+    --gold-dark: #a8851c;
+    --accent: #c9a227;
+    --accent-dark: #a8851c;
+    --brand: #2a5fa5;
+    --text: #1a2a4a;
+    --text-muted: #6b7280;
+    --suit-red: #c62828;
+  }
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+  body {
+    font-family: "Heebo", "Segoe UI", Arial, sans-serif;
+    background: radial-gradient(circle at 50% -10%, var(--bg-a), var(--bg-b) 70%);
+    color: var(--text);
+    margin: 0;
+    padding: 28px 16px 40px;
+    min-height: 100vh;
+  }
+  .wrap {
+    max-width: 460px;
+    margin: 0 auto;
+  }
+  .suits {
+    text-align: center;
+    font-size: 28px;
+    letter-spacing: 12px;
+    margin-bottom: 12px;
+    opacity: 0;
+    animation: fade-down 0.5s ease-out forwards;
+  }
+  .suits .red { color: #ff8a80; }
+  .suits .black { color: #ffffff; }
+  h1 {
+    text-align: center;
+    color: #ffffff;
+    font-size: 40px;
+    font-weight: 800;
+    margin: 0 0 8px;
+    opacity: 0;
+    animation: fade-up 0.55s ease-out 0.08s forwards;
+  }
+  .subtitle {
+    text-align: center;
+    color: #d7f5e2;
+    font-size: 21px;
+    margin-bottom: 4px;
+    opacity: 0;
+    animation: fade-up 0.55s ease-out 0.16s forwards;
+  }
+  .tagline {
+    text-align: center;
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fade-up 0.55s ease-out 0.2s forwards;
+  }
+  .panel {
+    background: var(--panel-bg);
+    border: 3px solid var(--gold);
+    border-radius: 18px;
+    padding: 26px 24px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.22);
+    opacity: 0;
+    animation: fade-up 0.55s ease-out 0.28s forwards;
+  }
+  .panel p {
+    font-size: 20px;
+    line-height: 1.7;
+    margin: 0 0 18px;
+    color: var(--text);
+  }
+  .panel p:last-child {
+    margin-bottom: 0;
+  }
+  .start-btn {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    background: var(--gold);
+    color: #1a5d37;
+    font-size: 21px;
+    font-weight: 700;
+    border-radius: 14px;
+    padding: 17px 18px;
+    margin-top: 22px;
+    box-shadow: 0 8px 20px rgba(201,162,39,0.45);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    opacity: 0;
+    animation: fade-up 0.55s ease-out 0.32s forwards;
+  }
+  .start-btn:hover {
+    background: var(--gold-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(201,162,39,0.5);
+  }
+  .foot-note {
+    text-align: center;
+    color: #d7f5e2;
+    font-size: 15px;
+    margin-top: 16px;
+    opacity: 0;
+    animation: fade-up 0.55s ease-out 0.4s forwards;
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="suits"><span class="black">♠</span><span class="red">♥</span><span class="red">♦</span><span class="black">♣</span></div>
+  <h1>ברוכים הבאים</h1>
+  <div class="subtitle">כאן מתרגלים את משחק היד בברידג'</div>
+  <div class="tagline">כל יד מקדמת אותך</div>
+
+  <div class="panel">
+    <p>בוחרים נושא, מקבלים יד ומתחילים לשחק.</p>
+    <p>החוזה כבר נקבע.<br>היריב מוביל את הקלף הראשון והדומם נפתח.</p>
+    <p>מכאן אתה מנהל את המשחק, משחק את קלפי הכרוז והדומם ומנסה לבצע את החוזה.</p>
+    <p>במהלך התרגול תפגוש שאלות קצרות שיעזרו לך לזהות את הטכניקה המתאימה ולבחור את המהלך הנכון.</p>
+    <p>לא הצלחת בפעם הראשונה? פשוט מנסים שוב.</p>
+  </div>
+
+  <a class="start-btn" href="topics.html">התחל לתרגל</a>
+</div>
+</body>
+</html>

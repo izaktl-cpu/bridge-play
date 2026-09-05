@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>פיתוח סדרה - בחר סוג</title>
+<style>
+  :root {
+    --bg: #1a5d37;
+    --panel-bg: #f3ecfd;
+    --panel-border: #c9a227;
+    --gold: #c9a227;
+    --accent: #2a5fa5;
+    --text: #1a2a4a;
+    --text-muted: #6b7280;
+  }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 24px 16px;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; }
+  h1 { text-align: center; color: #ffffff; font-size: 22px; margin-bottom: 4px; }
+  .subtitle { text-align: center; color: #eafff0; font-size: 14px; margin-bottom: 8px; }
+  .back-link { display: block; text-align: center; color: #eafff0; font-size: 13px; margin-bottom: 18px; text-decoration: underline; }
+  .topic-list { display: flex; flex-direction: column; gap: 12px; }
+  .topic-card {
+    display: block;
+    background: var(--panel-bg);
+    border: 3px solid var(--gold);
+    border-radius: 12px;
+    padding: 16px 18px;
+    text-decoration: none;
+    color: var(--text);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+  }
+  .topic-title { font-size: 18px; font-weight: bold; color: var(--accent); margin-bottom: 4px; }
+  .topic-desc { font-size: 14px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>פיתוח סדרה</h1>
+  <div class="subtitle">בחר סוג פיתוח סדרה להתחיל בו</div>
+  <a class="back-link" href="topics.html">← חזרה לנושאים</a>
+  <div class="topic-list">
+    <a class="topic-card" href="suit-development-kqj.html">
+      <div class="topic-title">מסירת קלף גבוה אחד להגנה</div>
+    </a>
+    <a class="topic-card" href="suit-development.html">
+      <div class="topic-title">מסירת שני קלפים גבוהים להגנה</div>
+    </a>
+    <a class="topic-card" href="suit-development-kjt9.html">
+      <div class="topic-title">מסירת קלף גבוה להגנה יחד עם עקיפה</div>
+    </a>
+  </div>
+</div>
+</body>
+</html>

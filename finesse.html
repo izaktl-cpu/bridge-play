@@ -1,0 +1,3238 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>תרגול משחק היד - עקיפה</title>
+<style>
+  :root {
+    --bg: #1a5d37;
+    --gold: #c9a227;
+    --felt: #16a34a;
+    --felt-border: #c9a227;
+    --panel-bg: #eee3fb;
+    --panel-border: #c9aee8;
+    --accent: #2a5fa5;
+    --text: #1a2a4a;
+    --text-muted: #6b7280;
+    --red: #b91c1c;
+    --card-bg: #e0cdf5;
+    --card-border: #c9aee8;
+    --card-face: #ffffff;
+    --card-face-border: #a0b8d8;
+    --ink-black: #1a2a4a;
+    --ink-red: #b91c1c;
+  }
+  body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 6px;
+  }
+  .layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: flex-start;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+  .left-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .table-with-light {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  .side-panel {
+    background: var(--panel-bg);
+    border: 3px solid var(--gold);
+    border-radius: 10px;
+    padding: 10px 14px;
+    width: 200px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    font-size: 16px;
+    line-height: 1.4;
+  }
+  .side-panel > div + div { margin-top: 8px; }
+  .student-panel {
+    background: linear-gradient(160deg, #fff8e6, #ffedc2);
+    border: 2px solid #e8b93a;
+    border-radius: 16px;
+    padding: 16px 18px;
+    width: 200px;
+    min-height: 200px;
+    box-sizing: border-box;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    font-size: 15px;
+    line-height: 1.55;
+    color: #3a2c05;
+  }
+  .student-panel-title { font-weight: bold; font-size: 17px; color: #8a5a00; margin-bottom: 8px; }
+  .student-panel-body ul { margin: 6px 0; padding-inline-start: 20px; }
+  .student-panel-body li { margin-bottom: 8px; }
+  .student-panel-summary { margin-top: 10px; font-weight: bold; }
+  .table {
+    width: min(94vw, 88vh, 980px);
+    aspect-ratio: 1 / 1;
+    margin: 0 auto;
+    /* Bridge diagrams have a fixed spatial convention (N top / E right / S
+       bottom / W left) independent of the page's text direction, so this
+       grid is forced ltr; Hebrew labels inside still render correctly. */
+    direction: ltr;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr);
+    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-areas:
+      "tl    north  tr"
+      "west  center east"
+      "bl    south  br";
+    gap: 8px;
+    align-items: center;
+    justify-items: center;
+    background: var(--felt);
+    border: 4px solid var(--felt-border);
+    border-radius: 20px;
+    padding: 10px;
+    box-sizing: border-box;
+    box-shadow: 0 10px 34px rgba(0,0,0,0.45);
+  }
+  .corner-tl { grid-area: tl; align-self: start; justify-self: start; }
+  .seat-panel {
+    background: var(--panel-bg);
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 5px 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    min-width: 116px;
+  }
+  /* Stretched 2x beyond their own grid cell WITHOUT resizing the table -
+     width:200% + a -50% inline-start margin (relative to the cell) grows the
+     panel symmetrically and lets it visually overflow the felt on both
+     sides, since the table itself keeps its normal size/overflow:visible. */
+  .seat-north {
+    grid-area: north; box-sizing: border-box; justify-self: stretch; width: 200%; margin-inline-start: -50%;
+    position: relative;
+    transform: translateY(calc(-50% + 0.5cm + var(--dy, 0px))) translateX(var(--dx, 0px)) scale(var(--scale, 1));
+  }
+  .seat-south {
+    grid-area: south; box-sizing: border-box; justify-self: stretch; width: 200%; margin-inline-start: -50%;
+    position: relative;
+    transform: translateY(calc(50% - 0.5cm + var(--dy, 0px))) translateX(var(--dx, 0px)) scale(var(--scale, 1));
+  }
+  .seat-west {
+    grid-area: west; box-sizing: border-box; justify-self: stretch; width: 200%; margin-inline-start: -50%;
+    position: relative;
+    transform: translateY(var(--dy, 0px)) translateX(var(--dx, 0px)) rotate(90deg) scale(var(--scale, 1));
+  }
+  .seat-east {
+    grid-area: east; box-sizing: border-box; justify-self: stretch; width: 200%; margin-inline-start: -50%;
+    position: relative;
+    transform: translateY(var(--dy, 0px)) translateX(var(--dx, 0px)) rotate(90deg) scale(var(--scale, 1));
+  }
+  /* The four hands stop being a table once the play is over and the screen is a
+     phone. West and east sit on the sides, which means rotating them ninety
+     degrees, and a rotated panel on a narrow screen has no width left for the
+     cards. During play those hands are face down, so only the end state stacks. */
+  @media (max-width: 700px) {
+    .table.table--revealed {
+      padding: 8px;
+      aspect-ratio: auto;
+      min-height: calc(94vw + var(--table-extra-h, 1cm));
+      grid-template-rows: 1fr var(--mid-row-fr, 1.7fr) 1fr;
+    }
+    .table.table--revealed .seat-north, .table.table--revealed .seat-south {
+      width: 100%;
+      margin-inline-start: 0;
+      grid-column: 1 / -1;
+      transform: none;
+    }
+    .table.table--revealed .seat-west {
+      width: auto;
+      margin-inline-start: var(--we-edge-gap, -34.5px);
+      min-width: 0;
+      justify-self: start;
+      transform: rotate(90deg);
+    }
+    .table.table--revealed .seat-east {
+      width: auto;
+      margin-inline-end: var(--we-edge-gap, -34.5px);
+      min-width: 0;
+      justify-self: end;
+      transform: rotate(-90deg);
+    }
+    /* the square in the middle holds the trick being played, and there is none
+       once the hand is over - on a phone it would cost a whole screen of scrolling */
+    .table.table--revealed .compass { display: none; }
+  }
+  /* On a phone the two defenders' piles become a count. See
+     tools/stamp-phone-table.mjs for why. */
+  .hand-count { display: none; }
+  @media (max-width: 700px) {
+    .table { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+    .table .compass { width: 172px; height: 172px; }
+    .table .seat-west, .table .seat-east {
+      width: auto;
+      margin-inline-start: 0;
+      transform: none;
+      min-width: 0;
+      padding: 4px 2px;
+    }
+    .table .seat-west .rank-back, .table .seat-east .rank-back { display: none; }
+    /* Only while the hand is hidden: renderRevealedHand fills this same
+       .hand-line with real rank-btn cards at the end of the hand, and display:
+       block there stacks all thirteen instead of leaving them in a row. */
+    .table:not(.table--revealed) .seat-west .hand-line, .table:not(.table--revealed) .seat-east .hand-line { display: block; }
+    .table .seat-west .hand-count, .table .seat-east .hand-count {
+      display: block;
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+      color: var(--accent);
+    }
+    .table .seat-west .seat-title, .table .seat-east .seat-title { font-size: 12px; margin-bottom: 1px; }
+    /* Thirteen cards at the width they get on a desktop are 689 pixels, and the
+       panel is dealt 200% of a column - on a phone that runs off the screen and
+       the last cards are simply cut off. They wrap instead, two short rows, and
+       the panel stays inside the table. */
+    /* Across all three columns, or the panel is as wide as the middle column
+       only and spills over the felt on both sides. And the table stops being a
+       square: the wrapped second row of cards has to push it taller instead of
+       hanging out of the bottom. */
+    .table { aspect-ratio: auto; }
+    .table .seat-north, .table .seat-south {
+      width: 100%;
+      margin-inline-start: 0;
+      grid-column: 1 / -1;
+      /* the desktop layout pulls these two half a panel out of their row so the
+         table looks like a table; on a phone that pushes them past the felt */
+      transform: none;
+    }
+    .table .seat-north .hand-line, .table .seat-south .hand-line { flex-wrap: wrap; justify-content: center; }
+    .table .seat-north .rank-btn, .table .seat-south .rank-btn { min-width: 34px; flex: 0 0 auto; }
+  }
+  /* Revealed hands on a phone: north/south already wrap to two rows, but
+     east/west stayed one row of twelve or thirteen cards squeezed to a
+     sliver each. Shrink the cards a little across all four hands and let
+     east/west wrap too. */
+  @media (max-width: 700px) {
+    .table.table--revealed .rank-btn { height: 42px; }
+    .table.table--revealed .rank-btn .card-rank { font-size: 16px; }
+    .table.table--revealed .rank-btn .card-suit { font-size: 14px; }
+    .table.table--revealed .seat-west .hand-line, .table.table--revealed .seat-east .hand-line {
+      flex-wrap: wrap;
+      width: var(--we-strip, 165px);
+    }
+    .table.table--revealed .seat-west .rank-btn, .table.table--revealed .seat-east .rank-btn {
+      min-width: 0;
+      flex: 0 0 auto;
+      width: var(--we-card-w, 20px);
+      height: var(--we-card-h, 36px);
+    }
+  }
+  .seat-title { font-weight: bold; text-align: center; margin-bottom: 3px; font-size: 14px; color: var(--accent); }
+  .suit-row { display: flex; align-items: center; gap: 5px; margin: 1px 0; min-height: 32px; direction: ltr; }
+  .suit-icon { width: 16px; font-weight: bold; font-size: 15px; text-align: center; flex-shrink: 0; }
+  .suit-icon.red { color: var(--red); }
+  .suit-icon.black { color: var(--text); }
+  .suit-cards { display: flex; gap: 3px; flex-wrap: wrap; }
+  .hand-line {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+    direction: ltr;
+  }
+  .rank-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1 1 0;
+    min-width: 0;
+    height: 53px;
+    border-radius: 6px;
+    background: var(--card-face);
+    color: var(--ink-black);
+    font-weight: bold;
+    border: 1px solid var(--card-face-border);
+    cursor: pointer;
+    padding: 2px 2px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  }
+  .rank-btn .card-rank { font-size: 20px; line-height: 1; }
+  .rank-btn .card-suit { font-size: 18px; line-height: 1; }
+  .rank-btn.red { color: var(--ink-red); }
+  .rank-btn[disabled] { opacity: 0.35; cursor: not-allowed; }
+  /* A card shown after the hand is over: readable, obviously not playable. */
+  .rank-btn.revealed { opacity: 1; cursor: default; border-style: dashed; }
+  .rank-btn.revealed[disabled] { opacity: 0.92; }
+  /* Shown while a deal is being generated - see newDealWithNotice. */
+  .deal-wait {
+    position: fixed; inset: 0; z-index: 50;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(8, 40, 20, 0.55);
+    backdrop-filter: blur(1.5px);
+  }
+  .deal-wait.on { display: flex; }
+  .deal-wait-box {
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    border-radius: 14px; padding: 18px 26px 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    text-align: center; min-width: 260px;
+  }
+  .deal-wait-sky { position: relative; height: 46px; overflow: hidden; }
+  .deal-wait-crow {
+    position: absolute; top: 8px; left: -40px;
+    animation: deal-wait-fly 1.5s linear infinite;
+  }
+  .deal-wait-crow svg { display: block; }
+  .deal-wait-wing { transform-origin: 22px 12px; animation: deal-wait-flap 0.32s ease-in-out infinite alternate; }
+  @keyframes deal-wait-fly { from { left: -40px; } to { left: 100%; } }
+  @keyframes deal-wait-flap { from { transform: rotate(-24deg) scaleY(1); } to { transform: rotate(16deg) scaleY(0.75); } }
+  .deal-wait-text { color: var(--text); font-size: 15px; font-weight: bold; margin-top: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    .deal-wait-crow, .deal-wait-wing { animation: none; }
+    .deal-wait-crow { left: 40%; }
+  }
+  .rank-back {
+    min-width: 53px;
+    height: 53px;
+    border-radius: 6px;
+    background: repeating-linear-gradient(45deg, #e0cdf5, #e0cdf5 3px, #cfb0ea 3px, #cfb0ea 6px);
+    border: 1px solid var(--card-border);
+  }
+  .hand-line .rank-back { flex: 1 1 0; min-width: 0; }
+  .compass {
+    /* The four seat panels are position:relative and this box was not
+       positioned at all, so all four painted ABOVE it. On a phone the table is
+       small enough that the stretched East and West panels reach into the
+       middle, and the cards those two had played vanished behind the
+       face-down piles. Positioning the compass puts it back on top. */
+    position: relative;
+    z-index: 1;
+    grid-area: center;
+    width: 234px;
+    height: 234px;
+    border: 3px solid var(--accent);
+    background: var(--card-bg);
+    border-radius: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    grid-template-areas:
+      ".  tn ."
+      "tw tc te"
+      ".  ts .";
+    align-items: center;
+    justify-items: center;
+  }
+  .trick-tn { grid-area: tn; }
+  .trick-te { grid-area: te; }
+  .trick-ts { grid-area: ts; }
+  .trick-tw { grid-area: tw; }
+  .trick-tc { grid-area: tc; font-size: 11px; line-height: 1.3; opacity: 0.85; text-align: center; color: var(--text); font-weight: bold; }
+  .compass.awaiting-click { box-shadow: 0 0 0 3px rgba(42,95,165,0.35); }
+  .compass.awaiting-click .trick-tc { color: var(--accent); }
+  body.awaiting-click { cursor: pointer; }
+  .compass-letter { font-size: 39px; font-weight: bold; opacity: 0.6; color: var(--text); }
+  .card-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 57px;
+    border-radius: 6px;
+    background: var(--card-face);
+    color: var(--ink-black);
+    font-size: 22px;
+    font-weight: bold;
+    border: 2px solid var(--accent);
+    padding: 0 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+  }
+  .card-btn.red { color: var(--ink-red); }
+  .status { text-align: center; font-size: 19px; font-weight: bold; margin: 10px 0 4px; color: var(--accent); }
+  button.action {
+    background: var(--accent);
+    color: #ffffff;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 4px;
+  }
+  .controls-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 14px;
+    width: 190px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-self: flex-start;
+    transform: translateX(-1cm);
+  }
+  /* On a phone .controls-panel gets its own row and justify-content: center
+     is meant to center it there - the desktop nudge above fights that. */
+  @media (max-width: 700px) {
+    .controls-panel { transform: none; }
+  }
+  .controls-panel .status {
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text);
+    margin: 0 0 4px;
+  }
+  .controls-panel .action { width: 100%; box-sizing: border-box; margin: 0; }
+  .controls-seed-row { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+  .controls-seed-row input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+    font-size: 14px;
+  }
+  .result-banner {
+    text-align: left;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin: 8px auto 8px 0;
+    width: fit-content;
+    color: #fff;
+  }
+  .result-made { background: #16a34a; }
+  .result-down { background: #dc2626; }
+  .result-over { background: #2563eb; }
+  .traffic-light {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    background: #0b1526;
+    border: 3px solid #2a3a5a;
+    border-radius: 20px;
+    padding: 12px 10px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    margin-top: 0.5cm;
+  }
+  .tl-dot {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #26314a;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.5);
+  }
+  .tl-dot.lit-red { background: #ef4444; box-shadow: 0 0 14px 5px rgba(239,68,68,0.8), inset 0 1px 2px rgba(0,0,0,0.3); }
+  .tl-dot.lit-yellow { background: #facc15; box-shadow: 0 0 14px 5px rgba(250,204,21,0.8), inset 0 1px 2px rgba(0,0,0,0.3); }
+  .tl-dot.lit-green { background: #22c55e; box-shadow: 0 0 14px 5px rgba(34,197,94,0.8), inset 0 1px 2px rgba(0,0,0,0.3); }
+  .page-id {
+    max-width: 1500px;
+    margin: 0 auto 4px;
+    padding: 0 4px;
+    text-align: right;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--panel-bg);
+    opacity: 0.85;
+    letter-spacing: 0.2px;
+  }
+</style>
+</head>
+<body>
+<div class="deal-wait" id="dealWait" dir="rtl" aria-hidden="true">
+  <div class="deal-wait-box">
+    <div class="deal-wait-sky">
+      <div class="deal-wait-crow">
+        <svg width="52" height="30" viewBox="0 0 52 30" aria-hidden="true">
+          <path d="M4 19 Q14 12 26 14 Q36 15 46 10 L42 16 Q34 21 26 20 Q15 19 6 22 Z" fill="#1a2a4a"/>
+          <path class="deal-wait-wing" d="M20 13 Q26 2 34 6 Q28 10 24 15 Z" fill="#2a3a5a"/>
+          <circle cx="45" cy="11" r="1.6" fill="#eee3fb"/>
+        </svg>
+      </div>
+    </div>
+    <div class="deal-wait-text">מכינים יד חדשה</div>
+  </div>
+</div>
+
+<div class="page-id" dir="rtl">עקיפה <bdi>1</bdi></div>
+
+<div class="layout">
+  <div class="left-column">
+    <div class="side-panel" id="briefPanel" dir="rtl"></div>
+    <div class="student-panel" id="studentPanel" dir="rtl">
+      <div class="student-panel-title">הוראות לתלמיד</div>
+      <div class="student-panel-body" id="studentPanelBody">שחק את היד עד הסוף. כאן יופיע הסבר על כל טעות טכניקה שתעשה.</div>
+    </div>
+  </div>
+
+  <div class="table-with-light">
+    <div class="table">
+      <div class="seat-north seat-panel" id="seatNorth">
+        <div class="seat-title" dir="rtl">דומם (צפון)</div>
+        <div id="handN"></div>
+      </div>
+      <div class="seat-west seat-panel" id="seatWest">
+        <div class="seat-title" dir="rtl">מערב</div>
+        <div id="handW"></div>
+      </div>
+      <div class="compass" id="trickArea"></div>
+      <div class="seat-east seat-panel" id="seatEast">
+        <div class="seat-title" dir="rtl">מזרח</div>
+        <div id="handE"></div>
+      </div>
+      <div class="seat-south seat-panel" id="seatSouth">
+        <div class="seat-title" dir="rtl">כרוז (דרום)</div>
+        <div id="handS"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="controls-panel" dir="rtl">
+    <div class="status" id="statusLine"></div>
+    <button class="action" id="btnNewDeal">יד חדשה</button>
+    <button class="action" id="btnSameDeal">התחל מחדש (אותה יד)</button>
+      <button class="action" id="btnUndo">בטל מהלך אחרון</button>
+    <div class="controls-seed-row">
+      <input type="number" id="seedInput" placeholder="מספר יד" />
+      <button class="action" id="btnLoadSeed">טען יד לפי מספר</button>
+    </div>
+    <button class="action" id="btnStuck" style="margin-top:6px; background:#8a4b2a;">נתקעתי - שלח דיווח למורה</button>
+  </div>
+</div>
+
+<div id="resultBanner"></div>
+
+<!-- double dummy solver: the defence the student plays against -->
+<script type="text/javascript">var Module = {};</script>
+<script src="engine/dds/libdds.js"></script>
+<script src="engine/dds/browser.js"></script>
+<script>
+"use strict";
+
+// ---------- cards ----------
+const SUITS = ["S", "H", "D", "C"];
+const SUIT_SYMBOL = { S: "♠", H: "♥", D: "♦", C: "♣" };
+const SUIT_INDEX = { S: 0, H: 1, D: 2, C: 3 };
+const RANKS = [2,3,4,5,6,7,8,9,10,11,12,13,14];
+const RANK_LABEL = {2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"T",11:"J",12:"Q",13:"K",14:"A"};
+const SEATS = ["N", "E", "S", "W"];
+const SEAT_NAME = { N: "צפון", E: "מזרח", S: "דרום", W: "מערב" };
+
+function cardKey(c) { return c.suit + c.rank; }
+function cardLabel(c) { return SUIT_SYMBOL[c.suit] + RANK_LABEL[c.rank]; }
+function nextSeat(seat) { return SEATS[(SEATS.indexOf(seat) + 1) % 4]; }
+
+// mulberry32 - deterministic PRNG so a seed reproduces the exact same deal
+function mulberry32(seed) {
+  let a = seed;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(items, rng) {
+  const result = items.slice();
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = result[i]; result[i] = result[j]; result[j] = tmp;
+  }
+  return result;
+}
+
+// ---------- placeholder module: "finesse the king" ----------
+// HONOR_SEAT (dummy): A Q + 2 low spades (4 total). ENTRY_SEAT (declarer): 3 low
+// spades + a guaranteed entry. Which of N/S is which is randomized per deal
+// (see generateFinesseDeal) - the finesse technique itself doesn't care which
+// side holds the honors, and always drawing them into North made every deal
+// look the same regardless of TESTED_SUIT rotation (Itzik the teacher: "כל היד נראית אותו
+// דבר, פעם מצפון פעם מדרום").
+// The King is deliberately left unplaced - it lands wherever it falls among
+// E/W, because the finesse technique is correct regardless of which opponent
+// actually holds it (that is the nature of a finesse).
+function buildFinesseDealAttempt(seed) {
+  const rng = mulberry32(seed);
+  const testedSuit = TESTED_SUIT; // fixed for this whole attempt, set once per deal by generateFinesseDeal
+  const honorSeat = HONOR_SEAT, entrySeat = partnerOf(HONOR_SEAT); // likewise fixed per deal
+  const A = { suit: testedSuit, rank: 14 };
+  const Q = { suit: testedSuit, rank: 12 };
+  const K = { suit: testedSuit, rank: 13 };
+  // The King must land with a defender (not honorSeat or entrySeat) - otherwise
+  // the "missing honor" premise of the finesse collapses.
+  const otherLowSpades = RANKS.filter((r) => r !== 14 && r !== 13 && r !== 12).map((r) => ({ suit: testedSuit, rank: r }));
+  const shuffledSpades = shuffle(otherLowSpades, rng); // 10 cards
+  const honorSeatExtraSpades = shuffledSpades.slice(0, 2);
+  const entrySeatSpades = shuffledSpades.slice(2, 5);
+  const leftoverSpades = [K, ...shuffledSpades.slice(5)]; // 6 cards total, always includes the King
+
+  // entrySeat needs a guaranteed entry - otherwise entrySeat can never win a
+  // trick to lead toward dummy's A-Q, and the finesse can never be attempted.
+  // The entry's SUIT is randomized too (any suit but the tested one) so it
+  // isn't always hearts - only the Ace rank is fixed, to keep the entry a
+  // genuine sure winner.
+  const otherSuits = SUITS.filter((s) => s !== testedSuit);
+  const entrySuit = otherSuits[Math.floor(rng() * otherSuits.length)];
+  const entryCard = { suit: entrySuit, rank: 14 };
+
+  const nonTestedCards = [];
+  for (const s of otherSuits) for (const r of RANKS) nonTestedCards.push({ suit: s, rank: r }); // 39
+  const nonTestedExcludingEntry = nonTestedCards.filter((c) => !(c.suit === entrySuit && c.rank === 14)); // 38
+
+  // honorSeat/entrySeat fill only from non-tested-suit cards, so their tested-suit counts stay exactly 4/3.
+  const nonTestedPool = shuffle(nonTestedExcludingEntry, rng); // 38
+  const honorSeatMore = nonTestedPool.slice(0, 9);
+  const entrySeatMore = nonTestedPool.slice(9, 18);
+  const remainingNonTested = nonTestedPool.slice(18); // 20 cards
+
+  // The 6 unconstrained tested-suit cards plus whatever is left over split freely between E/W.
+  const ewPool = shuffle([...leftoverSpades, ...remainingNonTested], rng); // 26
+  const eastAll = ewPool.slice(0, 13);
+  const westAll = ewPool.slice(13, 26);
+
+  const hands = {
+    [honorSeat]: [A, Q, ...honorSeatExtraSpades, ...honorSeatMore],
+    [entrySeat]: [...entrySeatSpades, entryCard, ...entrySeatMore],
+    E: eastAll,
+    W: westAll,
+  };
+
+  const allCards = [...hands.N, ...hands.S, ...hands.E, ...hands.W];
+  const uniqueKeys = new Set(allCards.map(cardKey));
+  if (allCards.length !== 52 || uniqueKeys.size !== 52) {
+    throw new Error("Deal generation invariant violated - not a legal 52-card deal");
+  }
+  for (const seat of SEATS) {
+    if (hands[seat].length !== 13) throw new Error(`${seat} does not have 13 cards`);
+  }
+  return hands;
+}
+
+// Rejects deals where a suit OTHER than spades is long/strong enough between
+// N+S to make the contract without ever needing the finesse - the "trivial
+// alternate line" risk the project's own spec flagged and deferred (no DDS
+// available to check this properly, see docs/01-spec.md). Threshold is
+// calibrated, not guessed: with N+S holding 18 unconstrained non-spade cards
+// spread over 3 suits, at least one suit reaches 7+ cards ~100% of the time
+// (18/3=6 average, natural variance pushes the max over) - a length-only
+// cutoff at 7 rejects EVERY deal (measured: 0/5000 pass) and starves the
+// retry loop. The actual pedagogical danger is TOP-HONOR concentration
+// (A+K+Q = 9 HCP = an almost-automatic 3-trick source), not raw length, so
+// HCP>=9 does the real work; length only backstops extreme outliers (9+
+// cards). Measured combined acceptance rate ~50%, so 200 retries is ample.
+function hasTrivialEscape(hands) {
+  for (const suit of SUITS.filter((s) => s !== TESTED_SUIT)) {
+    const nsCards = [...hands.N, ...hands.S].filter((c) => c.suit === suit);
+    const hcp = nsCards.reduce((sum, c) => sum + (c.rank >= 11 ? c.rank - 10 : 0), 0);
+    if (nsCards.length >= 9 || hcp >= 9) return true;
+  }
+  return false;
+}
+
+function combinedHcp(hands) {
+  const all = [...hands.N, ...hands.S];
+  return all.reduce((sum, c) => sum + (c.rank >= 11 ? c.rank - 10 : 0), 0);
+}
+
+// Contract is hardcoded to 3NT for this module, but the deal was otherwise
+// unconstrained in strength - measured average combined N+S HCP ~23, well
+// under the 25 needed for a game-going NT hand (see bridge-knowledge skill,
+// "game=25 combined points"). A real partnership wouldn't even bid 3NT with
+// that little. Require >=25, same rejection-sampling pattern as above.
+const MIN_GAME_HCP = 25;
+
+// A 3NT hand should be balanced/semi-balanced - no void or singleton in
+// North's or South's own hand (spades are exempt: fixed at 4/3 by
+// construction, never 0/1). Caught in practice: North dealt a diamond
+// void, which is exactly the kind of shape a real partnership wouldn't
+// pick NT with. Spade count is exempt (already fixed, never 0/1).
+function hasBadShape(hands) {
+  for (const seat of ["N", "S"]) {
+    for (const suit of SUITS.filter((s) => s !== TESTED_SUIT)) {
+      if (hands[seat].filter((c) => c.suit === suit).length <= 1) return true;
+    }
+  }
+  return false;
+}
+
+// "Not too easy" (2026-08-01): Itzik the teacher asked for deals where entries actually
+// matter and the correct line doesn't blow the contract wide open - no more
+// than 1 overtrick when the finesse is taken correctly. Unlike the defense's
+// Monte Carlo, this doesn't need to sample hidden hands - WE built the deal,
+// so we know all 4 hands already. Scripts a "correct declarer" for THIS
+// module (lead low from entrySeat toward HONOR_SEAT's A-Q, adaptively play A
+// if the defender already showed the King, else finesse the Queen) and
+// simulates the whole hand
+// against the cheap positional defense (not Monte Carlo - this runs inside
+// the generation retry loop, so it must stay fast; ~2000 simulations took
+// well under half a second in testing).
+// isTooEasy's whole point is estimating what a SKILLED declarer could make,
+// not just this module's own tested technique - the scripted play above only
+// ever finesses in TESTED_SUIT, so a side suit with its own broken honor
+// combo (e.g. dummy's A-J opposite hand's K, missing only the Q) never gets
+// finessed in the simulation, silently under-counting real tricks and
+// letting genuinely-too-easy deals slip past the "no more than 1 overtrick"
+// filter (caught on the sibling king-doubleton-finesse.html module, 2026-08-08:
+// a deal with a free club finesse worth a 12th trick that the generator's own
+// check never saw coming). Generalizes the same lead-toward/play-the-lower-
+// honor shape to any side suit with a genuine broken combo. Whichever of N/S
+// holds the higher top card in that suit is the "target" (the tenace worth
+// protecting), the other is the "lead" seat (has a spot card to lead toward
+// it) - this fixed N-E-S-W rotation always seats the leader's partner 3rd to
+// act, which is exactly the finessing position, regardless of which of N/S
+// leads. Only applies while at least one top-4 honor (A/K/Q/J) is still
+// missing from the combined N+S holding - once all four are in, there's
+// nothing left to finesse for, just cash.
+function sideSuitFinessePlan(hands, suit) {
+  const nCards = hands.N.filter((c) => c.suit === suit);
+  const sCards = hands.S.filter((c) => c.suit === suit);
+  if (nCards.length === 0 || sCards.length === 0) return null; // no cross-hand lead possible
+  const combinedRanks = new Set([...nCards, ...sCards].map((c) => c.rank));
+  if ([14, 13, 12, 11].every((r) => combinedRanks.has(r))) return null; // already solid
+  const nTop = highestOf(nCards), sTop = highestOf(sCards);
+  if (nTop.rank === sTop.rank) return null;
+  const [targetSeat, leadSeat] = nTop.rank > sTop.rank ? ["N", "S"] : ["S", "N"];
+  const targetCards = targetSeat === "N" ? nCards : sCards;
+  if (targetCards.length < 2) return null; // nothing to finesse under the top card
+  return { leadSeat, targetSeat };
+}
+
+function pickDeclarerAwareCard(state, seat) {
+  const options = legalPlays(state, seat);
+  const trick = state.currentTrick;
+  const entrySeat = partnerOf(HONOR_SEAT);
+  if (seat === entrySeat && trick.plays.length === 0) {
+    const entrySeatSpades = state.hands[entrySeat].filter((c) => c.suit === TESTED_SUIT);
+    const dummyHasA = state.hands[HONOR_SEAT].some((c) => c.suit === TESTED_SUIT && c.rank === 14);
+    const dummyHasQ = state.hands[HONOR_SEAT].some((c) => c.suit === TESTED_SUIT && c.rank === 12);
+    if (entrySeatSpades.length > 0 && dummyHasA && dummyHasQ) return lowestOf(entrySeatSpades);
+  }
+  if (seat === HONOR_SEAT && trick.leader === entrySeat && trick.plays.length > 0 && trick.plays[0].card.suit === TESTED_SUIT) {
+    const hasA = state.hands[HONOR_SEAT].some((c) => c.suit === TESTED_SUIT && c.rank === 14);
+    const hasQ = state.hands[HONOR_SEAT].some((c) => c.suit === TESTED_SUIT && c.rank === 12);
+    if (hasA && hasQ) {
+      // The single defender seated between entrySeat and HONOR_SEAT in the
+      // rotation (was always West when entrySeat was fixed at South; now
+      // depends on which of N/S leads, so read it positionally instead of
+      // hardcoding a seat letter).
+      const defenderPlay = trick.plays[trick.plays.length - 1];
+      if (defenderPlay && defenderPlay.card.suit === TESTED_SUIT && defenderPlay.card.rank === 13) return { suit: TESTED_SUIT, rank: 14 };
+      return { suit: TESTED_SUIT, rank: 12 };
+    }
+  }
+  if (trick.plays.length === 0) {
+    for (const suit of SUITS.filter((s) => s !== TESTED_SUIT)) {
+      const plan = sideSuitFinessePlan(state.hands, suit);
+      if (plan && plan.leadSeat === seat) {
+        const leadCards = state.hands[seat].filter((c) => c.suit === suit);
+        return lowestOf(leadCards);
+      }
+    }
+  } else {
+    for (const suit of SUITS.filter((s) => s !== TESTED_SUIT)) {
+      const plan = sideSuitFinessePlan(state.hands, suit);
+      if (plan && seat === plan.targetSeat && trick.leader === plan.leadSeat && trick.plays[0].card.suit === suit) {
+        const targetCards = state.hands[seat].filter((c) => c.suit === suit);
+        if (targetCards.length >= 2) {
+          // Real finesse: play the CHEAPEST card that beats what's already
+          // shown in the trick, keeping the bigger honors in reserve for
+          // later rounds/entries - not a fixed "second-highest" index, which
+          // wins with the wrong card whenever the defender before us (2nd to
+          // act) already played something between our two lowest honors.
+          const priorRank = trick.plays[trick.plays.length - 1].card.rank;
+          const beatsPrior = targetCards.filter((c) => c.rank > priorRank).sort((a, b) => a.rank - b.rank);
+          if (beatsPrior.length > 0) return beatsPrior[0];
+        }
+      }
+    }
+  }
+  return pickHeuristicCard(state, seat);
+}
+
+function simulateWithScriptedDeclarer(hands) {
+  let s = createPlayState(hands, "W");
+  let guard = 0;
+  while (!isHandComplete(s)) {
+    if (++guard > 60) throw new Error("infinite loop");
+    const seat = s.turn;
+    const card = (seat === "N" || seat === "S") ? pickDeclarerAwareCard(s, seat) : pickHeuristicCard(s, seat);
+    s = playCard(s, seat, card);
+  }
+  return tricksWon(s).declarerSide;
+}
+
+const TRICKS_NEEDED = 9; // 3NT - matches CONTRACT below; hardcoded here since this
+// runs before CONTRACT's own declaration further down the file (const isn't
+// hoisted the way function declarations are - referencing it this early would throw)
+const MAX_OVERTRICKS_ALLOWED = 1;
+// The line a student plays when they never take the finesse: cash every card
+// that is already a winner - including the tested suit's own honors - and never
+// lead toward the honor. If that still brings the contract home, the finesse was
+// worth an overtrick and nothing more, and the exercise teaches nothing.
+//
+// Measured 2026-08-11 before this existed, 25 deals per module: the finesse
+// changed nothing on 40% (finesse), 28% (queen-jack-ten), 32% (jack), 32%
+// (ace-sequence), 60% (king-doubleton) and 36% (queen-ace) of generated deals.
+// Same hole Itzik the teacher found in the suit-development modules: only the lines I had
+// written were ever played, and "never finesse at all" was not one of them.
+function noFinesseCard(state, seat) {
+  const options = legalPlays(state, seat);
+  if (state.currentTrick.plays.length > 0) {
+    const winners = options.filter((c) => wouldWinTrick(c, seat, state.currentTrick));
+    return lowestOf(winners.length ? winners : options);
+  }
+  let best = null;
+  for (const suit of SUITS) {
+    const mine = state.hands[seat].filter((c) => c.suit === suit);
+    if (mine.length === 0) continue;
+    let oppTop = 0;
+    for (const opp of ["E", "W"]) {
+      for (const c of state.hands[opp]) if (c.suit === suit && c.rank > oppTop) oppTop = c.rank;
+    }
+    const winners = mine.filter((c) => c.rank > oppTop);
+    if (winners.length === 0) continue;
+    const top = winners.reduce((hi, c) => (c.rank > hi.rank ? c : hi), winners[0]);
+    if (!best || top.rank > best.rank) best = top;
+  }
+  return best || lowestOf(options);
+}
+
+function simulateNoFinesse(hands) {
+  let s = createPlayState(hands, "W");
+  let guard = 0;
+  while (!isHandComplete(s)) {
+    if (++guard > 60) throw new Error("infinite loop");
+    const seat = s.turn;
+    const card = (seat === "N" || seat === "S") ? noFinesseCard(s, seat) : pickHeuristicCard(s, seat);
+    s = playCard(s, seat, card);
+  }
+  return tricksWon(s).declarerSide;
+}
+
+// A MARGIN, not a bare "< 9": the defense plays the same deal differently on
+// every Monte Carlo draw, so a wrong line landing on exactly 8 makes 9 on
+// another one and the student gets away with it.
+const NO_FINESSE_MARGIN = 2;
+function finesseDecidesTheContract(hands) {
+  return simulateNoFinesse(hands) <= TRICKS_NEEDED - NO_FINESSE_MARGIN;
+}
+
+function isTooEasy(hands) {
+  const declarerTricks = simulateWithScriptedDeclarer(hands);
+  return declarerTricks > TRICKS_NEEDED + MAX_OVERTRICKS_ALLOWED;
+}
+
+// The generation loop only ever rejected the UPPER bound (too many tricks) -
+// nothing checked whether the scripted declarer actually reaches the 9
+// needed for 3NT at all (2026-08-08: measured ~37% of accepted deals fell
+// short on the sibling king-doubleton-finesse.html module). The scripted
+// declarer isn't perfect - it sometimes fails to find tricks a real line
+// could find - but that cuts BOTH ways safely: rejecting a deal the
+// simulation calls "under 9" costs nothing but a retry, even on the rare
+// occasion the deal was actually fine and the simulation just missed the
+// winning line. Same rejection-sampling pattern as isTooEasy, just the
+// other direction.
+function isTooHard(hands) {
+  const declarerTricks = simulateWithScriptedDeclarer(hands);
+  return declarerTricks < TRICKS_NEEDED;
+}
+
+// isTooEasy/isTooHard above check the scripted declarer against
+// pickHeuristicCard defense - a simple positional baseline. But the REAL
+// game (see the app wiring near the bottom of this file) uses
+// pickMonteCarloCard for E/W - genuine card-reading, much stronger. Measured
+// 2026-08-08 on the sibling king-doubleton-finesse.html module: of 150 deals
+// that already passed the cheap isTooEasy/isTooHard check, 24 (16%) fell
+// under 9 tricks against the REAL defense the student actually faces - the
+// cheap check was testing against a weaker opponent than the game ships
+// with. Only run this (expensive - Monte Carlo samples many hidden-hand
+// completions per decision) on a candidate that ALREADY passed every cheap
+// filter, not on every raw attempt.
+function realDefenseTricksOutOfRange(hands, rng) {
+  let s = createPlayState(hands, "W");
+  let guard = 0;
+  while (!isHandComplete(s)) {
+    if (++guard > 60) throw new Error("infinite loop");
+    const seat = s.turn;
+    const card = (seat === "N" || seat === "S") ? pickDeclarerAwareCard(s, seat) : defenderCard(s, seat, rng, FILTER_DEFENCE_SAMPLES);
+    s = playCard(s, seat, card);
+  }
+  // The 9..10 window (Itzik the teacher, 2026-08-08: "אני דורש שלא תוציאו ידיים מעל 10
+  // לקיחות ומתחת ל-9 לקיחות במשחק נכון") has to hold against the defense the
+  // student actually faces, not only against the cheap heuristic one that
+  // isTooEasy/isTooHard use - so BOTH bounds are checked here, not just the
+  // floor this function originally had.
+  const total = tricksWon(s).declarerSide;
+  return total < TRICKS_NEEDED || total > TRICKS_NEEDED + MAX_OVERTRICKS_ALLOWED;
+}
+
+// Monte Carlo defense is itself randomized (it samples hidden-hand
+// completions), so a SINGLE realDefenseTricksOutOfRange call isn't a stable
+// verdict on a given deal - the same hand can pass one random draw and fail
+// the next. Measured on king-doubleton-finesse.html 2026-08-08: one check
+// alone still left ~13% of "accepted" deals failing on a fresh replay;
+// requiring 2 independent draws to both pass dropped that to ~3.5% (a 3rd
+// check measured no further improvement - diminishing returns).
+const REAL_DEFENSE_CHECKS_REQUIRED = 2;
+// The no-finesse line has to fail against the defense the student ACTUALLY
+// faces, not only against the cheap positional baseline finesseDecidesTheContract
+// uses. Measured 2026-08-11: with the cheap check alone, the finesse still
+// changed nothing on 16%-28% of accepted deals once Monte Carlo defended them.
+// Same reasoning that put realDefenseTricksOutOfRange here in the first place.
+function noFinesseMakesGameAgainstRealDefense(hands, rng) {
+  let s = createPlayState(hands, "W");
+  let guard = 0;
+  while (!isHandComplete(s)) {
+    if (++guard > 60) throw new Error("infinite loop");
+    const seat = s.turn;
+    const card = (seat === "N" || seat === "S") ? noFinesseCard(s, seat) : defenderCard(s, seat, rng, FILTER_DEFENCE_SAMPLES);
+    s = playCard(s, seat, card);
+  }
+  return tricksWon(s).declarerSide >= TRICKS_NEEDED;
+}
+
+function passesRealDefenseChecks(hands, rng) {
+  for (let i = 0; i < REAL_DEFENSE_CHECKS_REQUIRED; i++) {
+    if (realDefenseTricksOutOfRange(hands, rng)) return false;
+    if (noFinesseMakesGameAgainstRealDefense(hands, rng)) return false;
+  }
+  return true;
+}
+
+// Measured headless (2026-08-01) before trusting it, per the earlier
+// lesson: joint acceptance of the first four filters together is still
+// ~5.5%, so 400 attempts left failure probability effectively zero - until
+// passesRealDefenseChecks was added (2026-08-08). Re-measured after that
+// addition: 300 sample deals hit the 400 cap and fell through to the
+// unfiltered fallback at least once. Bumped to 20000, matching the sibling
+// king-doubleton-finesse.html module which needed the same order of
+// magnitude for the same added check.
+const MAX_GENERATION_ATTEMPTS = 20000;
+
+function generateFinesseDealLegacy(seed) {
+  // Which suit the finesse lands in is randomized per deal (used to always
+  // be spades) - derived from its own independent PRNG instance seeded from
+  // the same `seed` so it's still fully reproducible, but doesn't consume
+  // from (or get consumed by) buildFinesseDealAttempt's own rng.
+  TESTED_SUIT = SUITS[Math.floor(mulberry32(seed)() * SUITS.length)];
+  // Which seat (N or S) holds the honors is likewise randomized per deal, from
+  // its own independent PRNG instance (seed+1, so it doesn't collide with
+  // TESTED_SUIT's draw above) - used to always be North, which made every
+  // deal look the same regardless of suit.
+  HONOR_SEAT = mulberry32(seed + 1)() < 0.5 ? "N" : "S";
+  const mcRng = mulberry32(seed + 2); // own independent stream, same reproducibility reasoning as TESTED_SUIT/HONOR_SEAT above
+  for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+    const hands = buildFinesseDealAttempt(seed + attempt * 7919);
+    if (hasTrivialEscape(hands)) continue;
+    if (combinedHcp(hands) < MIN_GAME_HCP) continue;
+    if (hasBadShape(hands)) continue;
+    if (isTooEasy(hands)) continue;
+    if (isTooHard(hands)) continue;
+    if (!finesseDecidesTheContract(hands)) continue;
+    if (ceilingOutOfWindow(hands)) continue;
+    if (!passesRealDefenseChecks(hands, mcRng)) continue;
+    if (!sideSuitsAreHarmless(hands)) continue;
+    if (defenceRunsASideSuit(hands)) continue;
+    return hands;
+  }
+  return buildFinesseDealAttempt(seed); // give up rather than crash - better a slightly-too-easy deal than none
+}
+
+// Test seam: the harness and the probes need to know which suit the module is
+// about. Top-level `let` is not reachable from a vm context, only functions are.
+function currentTestedSuit() { return TESTED_SUIT; }
+
+// The shape of a deal, decided from the seed and nothing else. Lifted out of the
+// generator so a board can be put back the way it was made without making it
+// again - see tools/stamp-deal-shape.mjs.
+function setDealShape(seed) {
+  TESTED_SUIT = SUITS[Math.floor(mulberry32(seed)() * SUITS.length)];
+  HONOR_SEAT = mulberry32(seed + 1)() < 0.5 ? "N" : "S";
+}
+
+function currentDealConfig() { return { TESTED_SUIT, HONOR_SEAT }; }
+
+// ---------- side suits must not carry the contract ----------
+// See tools/stamp-side-suit-rule.mjs for why this exists. Do not hand-edit here -
+// edit the tool and re-stamp, or the modules drift apart again.
+function sideSuitStreamSeed(hands) {
+  let h = 2166136261;
+  for (const seat of ["N", "E", "S", "W"]) {
+    for (const c of hands[seat]) h = (Math.imul(h ^ (SUIT_INDEX[c.suit] * 16 + c.rank), 16777619)) >>> 0;
+  }
+  return h;
+}
+
+// Cheapest card that wins the trick, else the cheapest card; on lead, the top of
+// the suit being developed. Top first is what makes this a NO-FINESSE line.
+function sideSuitDevelopCard(state, seat, dev) {
+  const options = legalPlays(state, seat);
+  if (state.currentTrick.plays.length > 0) {
+    const winners = options.filter((c) => wouldWinTrick(c, seat, state.currentTrick));
+    return lowestOf(winners.length ? winners : options);
+  }
+  const mine = options.filter((c) => c.suit === dev);
+  if (mine.length) return mine.reduce((hi, c) => (c.rank > hi.rank ? c : hi), mine[0]);
+  for (const suit of SUITS) {
+    const cards = options.filter((c) => c.suit === suit);
+    if (cards.length === 0) continue;
+    let oppTop = 0;
+    for (const opp of ["E", "W"]) {
+      for (const c of state.hands[opp]) if (c.suit === suit && c.rank > oppTop) oppTop = c.rank;
+    }
+    const wins = cards.filter((c) => c.rank > oppTop);
+    if (wins.length) return wins.reduce((hi, c) => (c.rank > hi.rank ? c : hi), wins[0]);
+  }
+  return lowestOf(options);
+}
+
+function sideSuitDevelopTricks(hands, dev, rng) {
+  let s = createPlayState(hands, "W");
+  s = playCard(s, "W", chooseOpeningLead(s.hands.W));
+  let guard = 0;
+  while (!isHandComplete(s)) {
+    if (++guard > 60) throw new Error("infinite loop in the side suit check");
+    const seat = s.turn;
+    const card = (seat === "N" || seat === "S")
+      ? sideSuitDevelopCard(s, seat, dev)
+      : defenderCard(s, seat, rng, FILTER_DEFENCE_SAMPLES);
+    s = playCard(s, seat, card);
+  }
+  return tricksWon(s).declarerSide;
+}
+
+// Outside the taught suit, neither declarer hand may hold five or more. Length
+// alone is a source of tricks and it is not the source this module teaches.
+function sideSuitsAreFlat(hands) {
+  for (const suit of SUITS) {
+    if (suit === TESTED_SUIT) continue;
+    for (const seat of ["N", "S"]) {
+      if (hands[seat].filter((c) => c.suit === suit).length >= 5) return false;
+    }
+  }
+  return true;
+}
+
+// A side suit the defence can simply run. Counted as a player counts a suit:
+// the defence leads it every time (their entries are assumed), everyone who still
+// holds one follows, the highest card wins, and the count stops once both
+// defenders are out. Proper minimax - the two defenders maximise, declarer and
+// dummy minimise. The tested suit is skipped, because losing tricks there is the
+// exercise. See tools/stamp-defence-run-filter.mjs for why this is here.
+function defenceSuitTricks(hands, suit) {
+  const NS = { N: 1, S: 1 };
+  const ROT = { N: ["N", "E", "S", "W"], E: ["E", "S", "W", "N"], S: ["S", "W", "N", "E"], W: ["W", "N", "E", "S"] };
+  const of = (seat) => hands[seat].filter((c) => c.suit === suit).map((c) => c.rank).sort((a, b) => b - a);
+  const memo = new Map();
+  const drop = (h, seat, rank) => {
+    const next = { N: h.N, E: h.E, S: h.S, W: h.W };
+    const i = next[seat].indexOf(rank);
+    next[seat] = next[seat].slice(0, i).concat(next[seat].slice(i + 1));
+    return next;
+  };
+  const key = (h, leader) => leader + "|" + ["N", "E", "S", "W"].map((s) => h[s].join(".")).join("/");
+  function trick(h, leader) {
+    if (h.E.length === 0 && h.W.length === 0) return 0;
+    const k = key(h, leader);
+    if (memo.has(k)) return memo.get(k);
+    const order = ROT[leader];
+    function step(cur, i, table) {
+      if (i === 4) {
+        let top = table[0];
+        for (const t of table) if (t.rank > top.rank) top = t;
+        const leaders = ["E", "W"].filter((s) => cur[s].length > 0);
+        const rest = leaders.length ? Math.max.apply(null, leaders.map((s) => trick(cur, s))) : 0;
+        return (NS[top.seat] ? 0 : 1) + rest;
+      }
+      const seat = order[i];
+      if (cur[seat].length === 0) return step(cur, i + 1, table);
+      const values = cur[seat].map((r) => step(drop(cur, seat, r), i + 1, table.concat([{ seat: seat, rank: r }])));
+      return NS[seat] ? Math.min.apply(null, values) : Math.max.apply(null, values);
+    }
+    const values = h[leader].map((r) => step(drop(h, leader, r), 1, [{ seat: leader, rank: r }]));
+    const out = Math.max.apply(null, values);
+    memo.set(k, out);
+    return out;
+  }
+  const start = { N: of("N"), E: of("E"), S: of("S"), W: of("W") };
+  const leaders = ["E", "W"].filter((s) => start[s].length > 0);
+  return leaders.length ? Math.max.apply(null, leaders.map((s) => trick(start, s))) : 0;
+}
+
+function defenceRunsASideSuit(hands) {
+  const beatsIt = 13 - (6 + CONTRACT.level) + 1; // not TRICKS_NEEDED - double-finesse.html never defines that constant
+  for (const suit of SUITS) {
+    if (suit === TESTED_SUIT) continue;
+    // The minimax below is the expensive part of the whole generation loop, so
+    // it is only asked where the answer can be yes. A side cannot take more
+    // tricks in a suit than it holds cards, so fewer than beatsIt cards between
+    // the two defenders settles it without counting. This gate is exact - it
+    // never skips a suit the count would have flagged.
+    const held = hands.E.filter((c) => c.suit === suit).length + hands.W.filter((c) => c.suit === suit).length;
+    if (held < beatsIt) continue;
+    if (defenceSuitTricks(hands, suit) >= beatsIt) return true;
+  }
+  return false;
+}
+
+function sideSuitsAreHarmless(hands) {
+  if (!sideSuitsAreFlat(hands)) return false;
+  // One stream per suit, not three: this runs on every deal that survives the
+  // cheap filters, and the harness re-asks the question with more streams.
+  const rng = mulberry32(sideSuitStreamSeed(hands));
+  for (const suit of SUITS) {
+    if (suit === TESTED_SUIT) continue;
+    if (sideSuitDevelopTricks(hands, suit, rng) >= TRICKS_NEEDED) return false;
+  }
+  return true;
+}
+
+function sortHandForDisplay(cards) {
+  return cards.slice().sort((a, b) => {
+    if (a.suit !== b.suit) return SUIT_INDEX[a.suit] - SUIT_INDEX[b.suit];
+    return b.rank - a.rank;
+  });
+}
+
+// ---------- card play engine ----------
+const CONTRACT = { level: 3, strain: "NT", declarer: "S" };
+const VULNERABLE = false; // placeholder module - not vulnerable
+
+function partnerOf(seat) { return { N: "S", S: "N", E: "W", W: "E" }[seat]; }
+function isDeclarerSide(seat) { return seat === CONTRACT.declarer || seat === partnerOf(CONTRACT.declarer); }
+
+function createPlayState(hands, openingLeader) {
+  return {
+    hands: { N: hands.N.slice(), E: hands.E.slice(), S: hands.S.slice(), W: hands.W.slice() },
+    currentTrick: { leader: openingLeader, plays: [] },
+    completedTricks: [],
+    turn: openingLeader,
+  };
+}
+
+function legalPlays(state, seat) {
+  const hand = state.hands[seat];
+  const ledSuit = state.currentTrick.plays[0] ? state.currentTrick.plays[0].card.suit : null;
+  if (!ledSuit) return hand.slice();
+  const following = hand.filter((c) => c.suit === ledSuit);
+  return following.length > 0 ? following : hand.slice();
+}
+
+function trickWinner(trick) {
+  // strain is always NT for this module - no trump suit to prioritize.
+  const ledSuit = trick.plays[0].card.suit;
+  const contest = trick.plays.filter((p) => p.card.suit === ledSuit);
+  return contest.reduce((best, p) => (p.card.rank > best.card.rank ? p : best), contest[0]).seat;
+}
+
+function playCard(state, seat, card) {
+  if (state.turn !== seat) throw new Error(`It is ${state.turn}'s turn, not ${seat}'s`);
+  const hand = state.hands[seat];
+  const cardIndex = hand.findIndex((c) => cardKey(c) === cardKey(card));
+  if (cardIndex === -1) throw new Error(`${seat} does not hold ${cardLabel(card)}`);
+  const legal = legalPlays(state, seat);
+  if (!legal.some((c) => cardKey(c) === cardKey(card))) throw new Error("must follow suit");
+
+  const nextHands = Object.assign({}, state.hands, { [seat]: hand.filter((_, i) => i !== cardIndex) });
+  const trickInProgress = {
+    leader: state.currentTrick.leader,
+    plays: [...state.currentTrick.plays, { seat, card }],
+  };
+
+  if (trickInProgress.plays.length < 4) {
+    return Object.assign({}, state, { hands: nextHands, currentTrick: trickInProgress, turn: nextSeat(seat) });
+  }
+  const winner = trickWinner(trickInProgress);
+  return Object.assign({}, state, {
+    hands: nextHands,
+    currentTrick: { leader: winner, plays: [] },
+    completedTricks: [...state.completedTricks, trickInProgress],
+    turn: winner,
+  });
+}
+
+function isHandComplete(state) { return state.completedTricks.length === 13; }
+
+function tricksWon(state) {
+  let declarerSide = 0, defenseSide = 0;
+  for (const trick of state.completedTricks) {
+    const winner = trickWinner(trick);
+    if (isDeclarerSide(winner)) declarerSide++; else defenseSide++;
+  }
+  return { declarerSide, defenseSide };
+}
+
+function contractResult(state) {
+  const tricksNeeded = 6 + CONTRACT.level;
+  const { declarerSide } = tricksWon(state);
+  if (declarerSide === tricksNeeded) return "made";
+  if (declarerSide > tricksNeeded) return "overtricks";
+  return "down";
+}
+
+// Standard (undoubled) duplicate bridge scoring.
+function trickValue(strain) { return strain === "NT" || strain === "S" || strain === "H" ? 30 : 20; }
+
+function scoreResult(state) {
+  const tricksNeeded = 6 + CONTRACT.level;
+  const { declarerSide } = tricksWon(state);
+  const value = trickValue(CONTRACT.strain);
+  const ntFirstTrickBonus = CONTRACT.strain === "NT" ? 10 : 0;
+  if (declarerSide >= tricksNeeded) {
+    const contractScore = CONTRACT.level * value + ntFirstTrickBonus;
+    const gameBonus = contractScore >= 100 ? (VULNERABLE ? 500 : 300) : 50;
+    const overtricks = declarerSide - tricksNeeded;
+    return { side: "declarer", points: contractScore + gameBonus + overtricks * value };
+  }
+  const undertricks = tricksNeeded - declarerSide;
+  return { side: "defense", points: undertricks * (VULNERABLE ? 100 : 50) };
+}
+
+function lowestOf(cards) {
+  return cards.slice().sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    return SUIT_INDEX[a.suit] - SUIT_INDEX[b.suit];
+  })[0];
+}
+
+function highestOf(cards) {
+  return cards.slice().sort((a, b) => {
+    if (a.rank !== b.rank) return b.rank - a.rank;
+    return SUIT_INDEX[a.suit] - SUIT_INDEX[b.suit];
+  })[0];
+}
+
+function wouldWinTrick(card, seat, trick) {
+  const hypothetical = { leader: trick.leader, plays: [...trick.plays, { seat, card }] };
+  return trickWinner(hypothetical) === seat;
+}
+
+// Standard opening lead: longest suit, top-of-touching-sequence if the top
+// two cards are consecutive, else 4th-best from a 4+ card suit, else top of
+// a short suit. Verified headless (2026-08-01) that this doesn't change the
+// finesse mechanics (2nd-hand-low is untouched - a lead never lands here).
+//
+// The tested suit (spades - see generateFinesseDeal) is deliberately EXCLUDED
+// from lead consideration: caught in practice (2026-08-01) that West could
+// otherwise open the missing King straight into dummy's A-Q, which reveals
+// where the King sits before the student ever has to decide whether to
+// finesse - it collapses the entire exercise into a non-decision. A real
+// opening leader can't see dummy either way, but THIS app knows which suit
+// is pedagogically loaded and must keep the lead out of it.
+//
+// `let`, not `const` - randomized per deal (see generateFinesseDeal) so the
+// finesse doesn't always land in spades. The placeholder "S" here only
+// matters before the first deal is generated; nothing reads it before then.
+let TESTED_SUIT = "S";
+// Which of N/S holds the honor sequence this deal - `let`, randomized per
+// deal (see generateFinesseDeal), same reasoning as TESTED_SUIT above.
+let HONOR_SEAT = "N";
+// Top-of-sequence lead applies to a TRUE 3+ card sequence (e.g. QJT) or a
+// BROKEN sequence with exactly one internal gap (e.g. KQT missing the J, or
+// KJT missing the Q) - both real, standard opening-lead conventions. The top
+// 3 cards span at most 4 consecutive ranks in either case (span 2 = no gap,
+// span 3 = exactly one gap); a wider span means no leadable sequence.
+// A leadable sequence requires the TOP TWO cards to be touching (e.g. K-Q,
+// Q-J) - a lone top honor sitting above a gap (e.g. J-9-8, missing the T) is
+// not a real sequence and should lead 4th-best/low instead, not the top card.
+function hasLeadableSequence(cards) {
+  return cards.length >= 3 && (cards[0].rank - cards[1].rank) === 1 && (cards[1].rank - cards[2].rank) <= 2;
+}
+
+// Interior sequence (Itzik the teacher, 2026-08-05, reference chart): the top card sits
+// ALONE, exactly one rank above a genuine touching pair below it - e.g.
+// A-Q-J-6-4-2 (missing the K: A isolated, Q-J touch), K-J-T-8-6-3 (missing
+// the Q), Q-T-9-5-4-2 (missing the J). Real convention leads the top of the
+// INTERIOR run (the Q, J, T respectively), not the actual top card - that
+// isolated top honor is being kept back for later control, not led. Needs
+// the gap to be exactly one missing rank; a bigger gap (e.g. K-9-8-5-3-2)
+// isn't a real interior sequence, just a lone honor over random low cards.
+function hasInteriorSequence(cards) {
+  return cards.length >= 3 && (cards[0].rank - cards[1].rank) === 2 && (cards[1].rank - cards[2].rank) === 1;
+}
+
+function chooseOpeningLead(hand) {
+  const bySuit = { S: [], H: [], D: [], C: [] };
+  for (const c of hand) bySuit[c.suit].push(c);
+  for (const s of SUITS) bySuit[s].sort((a, b) => b.rank - a.rank);
+  const candidateSuits = SUITS.filter((s) => s !== TESTED_SUIT);
+  let bestSuit = candidateSuits[0];
+  for (const s of candidateSuits) if (bySuit[s].length > bySuit[bestSuit].length) bestSuit = s;
+  let cards = bySuit[bestSuit];
+  if (cards.length === 0) cards = bySuit[TESTED_SUIT]; // only if void in all 3 other suits
+  if (cards.length === 0) return lowestOf(hand);
+  // Sequence/broken-sequence leads and the 4th-best rule only apply from a
+  // 4+ card suit; a short suit (2-3 cards, no qualifying sequence) leads its
+  // top card, same as before.
+  if (cards.length >= 4) {
+    if (hasLeadableSequence(cards)) return cards[0];
+    if (hasInteriorSequence(cards)) return cards[1];
+    // 4th-best only applies when the suit actually has an honor (J+) to
+    // lead "toward" - a suit with no honor at all (e.g. 9-7-4-3-2) instead
+    // leads its SECOND-highest card, not the 4th.
+    if (cards.some((c) => c.rank >= 11)) return cards[3];
+    return cards[1];
+  }
+  // A 3-card suit leads its top card only if it's a real sequence (Q
+  // promises J-T, etc.) - an unsupported honor (e.g. Qxx with no J) leads
+  // low instead, same "no sequence -> small card" rule as the 4+ case.
+  if (cards.length === 3) {
+    if (hasLeadableSequence(cards)) return cards[0];
+    if (hasInteriorSequence(cards)) return cards[1];
+    return cards[2];
+  }
+  return cards[0]; // doubleton (top-of-doubleton convention) or singleton (forced)
+}
+
+// Positional baseline defense (E/W): win the trick as cheaply as possible if
+// able to (2nd/4th hand), except a defender playing 3RD to a trick plays the
+// HIGHEST winning card ("third hand high" - helps partner's lead score,
+// since one more player still acts after the leader but not after 3rd hand
+// in this sub-case... precisely: 3rd-to-act still has a player left after
+// them, so a cheap winner can be overtaken; playing high denies that).
+// Opening lead uses real conventions instead of "lowest card in the hand".
+// No card-reading of its own - used both as a last-resort fallback AND as
+// the shared rollout policy inside the Monte Carlo defense below.
+// A discard that leaves a King bare (no small card left with it) or a Queen
+// with fewer than 2 small guards is exactly the kind of unforced own-goal a
+// real defender avoids - the bare honor becomes catchable later for no
+// reason. `hand` is the seat's FULL hand pre-discard (when actually
+// discarding, `options` already equals the whole hand - see legalPlays'
+// void fallback - so callers can just pass that in directly).
+function wouldExposeHonor(hand, card) {
+  const suitCards = hand.filter((c) => c.suit === card.suit);
+  const remaining = suitCards.filter((c) => cardKey(c) !== cardKey(card));
+  if (remaining.some((c) => c.rank === 13) && remaining.length === 1) return true; // King left bare
+  if (remaining.some((c) => c.rank === 12) && remaining.filter((c) => c.rank < 12).length < 2) return true; // Queen with <2 low guards
+  return false;
+}
+
+// When a defender is void in the led suit and must discard, apply (in
+// order, each only narrowing the choice if it doesn't wipe out every
+// candidate) three real defensive discarding principles:
+// 1. Never throw a TESTED_SUIT card if any other suit is available - the
+//    missing honor there is the whole point of the exercise, and an
+//    unforced discard from it can hand the King (or otherwise collapse the
+//    finesse position) for no reason on a completely unrelated trick.
+// 2. Never discard an honor (J/Q/K/A) if a spot card is available instead.
+// 3. Never strip a King bare or a Queen below 2 guards if a discard exists
+//    that avoids it.
+// Only actually filters anything when the player is genuinely discarding
+// across multiple suits; following suit normally is unaffected either way.
+function restrictDiscardCandidates(options, trick) {
+  if (trick.plays.length === 0) return options; // leading, not discarding
+  const ledSuit = trick.plays[0].card.suit;
+  const isDiscard = !options.some((c) => c.suit === ledSuit);
+  if (!isDiscard) return options;
+
+  let candidates = options;
+  const nonTested = candidates.filter((c) => c.suit !== TESTED_SUIT);
+  if (nonTested.length > 0) candidates = nonTested;
+
+  const nonHonor = candidates.filter((c) => c.rank < 11);
+  if (nonHonor.length > 0) candidates = nonHonor;
+
+  const safe = candidates.filter((c) => !wouldExposeHonor(options, c));
+  if (safe.length > 0) candidates = safe;
+
+  return candidates;
+}
+
+// Any lead of a NEW trick after the very first one (the true opening lead,
+// handled separately before this function is ever called) has real
+// information available that a blind opening lead doesn't: dummy is
+// visible, and every suit either side has already shown out of is known
+// (see deriveVoids below). If the leader's side already knows the
+// OPPONENTS are void in some suit the leader still holds, that suit is a
+// guaranteed run - cash it instead of blindly reapplying opening-lead
+// convention (longest suit/sequence), which has no concept of voids and
+// would otherwise happily switch away from certain tricks. Falls back to
+// the blind convention whenever no such sure suit is known.
+function chooseLeadForNewTrick(state, seat) {
+  const hand = state.hands[seat];
+  const voids = deriveVoids(state);
+  const opponents = isDeclarerSide(seat) ? ["E", "W"] : ["N", "S"];
+  const sureSuits = SUITS.filter((s) => opponents.every((o) => voids[o].has(s)) && hand.some((c) => c.suit === s));
+  if (sureSuits.length > 0) {
+    return hand.filter((c) => c.suit === sureSuits[0]).sort((a, b) => b.rank - a.rank)[0];
+  }
+  // Defense reads its own opening lead as informative and keeps attacking
+  // that suit rather than switching to a fresh one of its own choosing -
+  // real defenders continue partner's suit once they regain the lead
+  // (Itzik the teacher, 2026-08-05). Only for defense (E/W); TESTED_SUIT is excluded
+  // since it's never the suit that was actually led (see chooseOpeningLead).
+  // Once a suit has actually been led before, its remaining cards are a
+  // CONTINUATION, not a fresh blind lead - the sequence/interior-sequence/
+  // 4th-best conventions only govern the very FIRST card led in a suit.
+  // Re-deriving them here on the leftover cards was a real bug (caught by
+  // Itzik the teacher): after a defender cashed the top two of its own running suit, the
+  // leftover cards (e.g. Q-J-5-3-2, no clean sequence but still has an
+  // honor) triggered "4th best" and led a low card - throwing away a trick
+  // to a card that was never a real stopper. Continuing simply means
+  // playing the highest remaining card.
+  if (!isDeclarerSide(seat) && state.completedTricks.length > 0) {
+    const partnerSuit = state.completedTricks[0].plays[0].card.suit;
+    const partnerSuitCards = hand.filter((c) => c.suit === partnerSuit);
+    if (partnerSuit !== TESTED_SUIT && partnerSuitCards.length > 0) {
+      return partnerSuitCards.sort((a, b) => b.rank - a.rank)[0];
+    }
+  }
+  return chooseOpeningLead(hand);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// >>> card-policy.js - generated by tools/stamp-policy.mjs, do not edit here
+// ---------- card policy ----------
+// One set of hard rules for choosing a card, used by BOTH sides: the defenders
+// the student plays against, and the scripted declarer the generators measure
+// deals with. Stamped into every exercise file by tools/stamp-policy.mjs - the
+// exercises stay standalone, there is no runtime library.
+//
+// WHY THIS EXISTS (Itzik the teacher, 19/8/26, two hands he played):
+//
+//   1. A defender played the Ace and his partner's King fell under it. Two
+//      winners burned on one trick.
+//   2. West led the 3, dummy played the 5, East played the 6, and declarer won
+//      with the 7 - while the defenders held A-K in the suit. Third hand played
+//      the cheapest card that beat what was already on the table instead of
+//      playing high.
+//
+// Neither is a close judgement call; both are blunders, and both made the
+// contract for the student and told him he had played well. They came out of
+// pickMonteCarloCard, which today chooses freely among all legal cards and lets
+// sampling noise decide. More samples would not have helped: the fix is that
+// hard rules decide what is ALLOWED and the search only picks among those.
+//
+// The rules are deliberately few. Every one of them is a rule a beginner is
+// taught in their first lessons, and every one is checkable without knowing the
+// hidden hands.
+
+// ---- what a seat is allowed to know ----------------------------------------
+// The scripted declarer runs inside the generator, sees all four hands and is
+// never shown to the student, so it may reason from the real cards. A defender
+// may not: it knows its own hand, the dummy, and every card already played.
+// "open" and "closed" name those two, and the difference matters in exactly one
+// place - rule 1 asking whether partner's trick is out of reach. For the
+// defence "still out there" includes partner's own hand, which makes the answer
+// cautious rather than wrong.
+function unseenBySeat(state, seat, knowledge) {
+  const seen = new Set();
+  const add = (c) => seen.add(cardKey(c));
+  for (const c of state.hands[seat]) add(c);
+  for (const t of state.completedTricks) for (const p of t.plays) add(p.card);
+  for (const p of state.currentTrick.plays) add(p.card);
+  if (knowledge === "open") {
+    for (const s of SEATS) for (const c of state.hands[s]) add(c);
+  } else {
+    const dummy = partnerOf(CONTRACT.declarer);
+    if (seat !== dummy) for (const c of state.hands[dummy]) add(c);
+  }
+  const out = [];
+  for (const s of SUITS) {
+    for (const r of RANKS) {
+      const c = { suit: s, rank: r };
+      if (!seen.has(cardKey(c))) out.push(c);
+    }
+  }
+  return out;
+}
+
+// Cards still outstanding in one suit that could beat me, from this seat's
+// point of view. For "open" knowledge this is the opponents' actual cards.
+function outstandingIn(state, seat, suit, knowledge) {
+  if (knowledge === "open") {
+    const opponents = isDeclarerSide(seat) ? ["E", "W"] : ["N", "S"];
+    const out = [];
+    for (const s of opponents) for (const c of state.hands[s]) if (c.suit === suit) out.push(c);
+    return out;
+  }
+  return unseenBySeat(state, seat, knowledge).filter((c) => c.suit === suit);
+}
+
+function topRankOf(cards) {
+  return cards.reduce((hi, c) => (c.rank > hi ? c.rank : hi), 0);
+}
+
+// "Third hand high" does not mean "play the Ace". From a touching run at the
+// top of the holding the cheapest one takes the trick just as well and keeps
+// the other: with A-K it is the King, with K-Q the Queen. Touching means one
+// rank apart inside this holding, so a gap ends the run.
+function cheapestOfTouchingTop(cards) {
+  const sorted = cards.slice().sort((a, b) => b.rank - a.rank);
+  let pick = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].rank !== pick.rank - 1) break;
+    pick = sorted[i];
+  }
+  return pick;
+}
+
+// ---- the hard rules ---------------------------------------------------------
+// Returns the cards this seat is ALLOWED to play. Never empty: when a rule
+// would leave nothing it is dropped, because a legal card must always exist.
+function policyCandidates(state, seat, knowledge) {
+  const legal = legalPlays(state, seat);
+  const trick = state.currentTrick;
+  if (trick.plays.length === 0 || legal.length === 1) return legal;
+
+  const ledSuit = trick.plays[0].card.suit;
+  const following = legal.filter((c) => c.suit === ledSuit);
+  const trump = CONTRACT.strain === "NT" ? null : CONTRACT.strain;
+  const winnerSoFar = trickWinner({ leader: trick.leader, plays: trick.plays });
+  const ourSideIsWinning = isDeclarerSide(winnerSoFar) === isDeclarerSide(seat);
+  const seatIndex = trick.plays.length; // 1 = second hand, 2 = third, 3 = last
+
+  const keep = (subset) => (subset && subset.length > 0 ? subset : null);
+
+  // "Partner has this trick" is not the same as "partner is ahead right now".
+  // From fourth seat they are the same thing, because nobody is left to play.
+  // From second or third they are not: an opponent still to come can beat him,
+  // and standing aside hands over a trick.
+  //
+  // Measured 2026-08-19, and it is why avoidance.html failed on 25 deals out of
+  // 25 with the correct line taking seven tricks. Seed 104736, trick 4: dummy
+  // led the ♥2, East was void and threw a club, so dummy was "winning" with a
+  // deuce - South held K-T over West's Q-7 and rule 1 made him play the Ten
+  // under his own partner's two. West's Queen took it. Third hand high is the
+  // rule for that seat, and it only yields to rule 1 when the trick is actually
+  // safe.
+  const winningPlay = trick.plays.reduce(
+    (best, p) => (p.seat === winnerSoFar ? p : best), trick.plays[0]);
+  const ourTrickIsSecure = () => {
+    if (seatIndex === 3) return true; // nobody left to play
+    const beaters = outstandingIn(state, seat, winningPlay.card.suit, knowledge);
+    if (beaters.some((c) => c.rank > winningPlay.card.rank)) return false;
+    // In a suit contract an unbeaten card can still be ruffed away.
+    if (trump && winningPlay.card.suit !== trump
+        && outstandingIn(state, seat, trump, knowledge).length > 0) return false;
+    return true;
+  };
+
+  // RULE 1 - our side already holds this trick: do not add a winner on top of
+  // it. This is both halves of what Itzik the teacher saw: the Ace crashing partner's King,
+  // and a trump spent ruffing a trick partner had already won.
+  //
+  // The two halves take the security test differently, and that is deliberate.
+  // Following suit cheaply GIVES UP on the trick, so it may only be done when
+  // the trick cannot be taken away. Ruffing partner's winner spends a trump on
+  // a trick he is already contesting, and that is wasteful whether or not the
+  // last player can beat him: if he can ruff, the ruff was pointless anyway.
+  if (ourSideIsWinning) {
+    if (following.length > 0) {
+      // Follow suit as cheaply as possible. Overtaking partner is only ever
+      // right to unblock, which is a taught technique and not a default.
+      if (ourTrickIsSecure()) return [lowestOf(following)];
+    } else {
+      const notTrump = trump ? legal.filter((c) => c.suit !== trump) : legal;
+      return keep(restrictDiscardCandidates(notTrump.length ? notTrump : legal, trick)) || legal;
+    }
+  }
+
+  // Either the other side holds the trick, or partner holds it and the last
+  // player can still take it away. Following suit, position decides.
+  if (following.length > 0) {
+    const beats = following.filter((c) => wouldWinTrick(c, seat, trick));
+
+    // RULE 2a - partner played a high card, so play low. Itzik the teacher, 2026-08-20:
+    // "אם השותף שם קלף גבוה אתה שם נמוך".
+    //
+    // Third hand high is a rule for beating the OPPONENTS. When partner has
+    // already put an honour up and it is the highest card on the table, adding
+    // a second honour under it beats nobody and throws the card away.
+    //
+    // finesse.html board 1422, trick 2: East led the ♦T, South played the ♦6,
+    // and West - holding J-8-7 - played the JACK. Dummy's bare Ace was going to
+    // win whatever West did. The Ten and the Jack fell together and promoted
+    // South's NINE, so declarer's two diamond tricks became three.
+    if (seatIndex === 2 && ourSideIsWinning && winningPlay.card.rank >= 10) {
+      return [lowestOf(following)];
+    }
+
+    // RULE 2 - third hand plays high. Not "the cheapest card that happens to
+    // beat what is showing" - the last player still has a card to come, and
+    // that is exactly how declarer's 7 won a trick against A-K.
+    if (seatIndex === 2) {
+      return keep(beats.length ? [cheapestOfTouchingTop(beats)] : null) || [lowestOf(following)];
+    }
+
+    // RULE 4 - fourth hand takes it as cheaply as it can.
+    if (seatIndex === 3) {
+      return keep(beats.length ? [lowestOf(beats)] : null) || [lowestOf(following)];
+    }
+
+    // RULE 3 - second hand plays low, with two exceptions: covering a led
+    // honour, and a SPOT card that is certain to win.
+    //
+    // The spot-card exception is narrow on purpose. "Second hand low" is a rule
+    // about not wasting HONOURS, and the version of it that had no exception at
+    // all cost a trick on holdup.html board 535148308 - the hand Itzik the teacher reported
+    // as unmakeable. Dummy led the ♠4, East held Q-J-T-9-8-2 over declarer's
+    // 7-6-5-3, played the deuce, and declarer's FIVE won a trick. Any of East's
+    // spots would have taken it and none of them was worth keeping.
+    //
+    // Rising with an honour is still forbidden, which is the whole difference
+    // from the exception this file used to carry: that one said "unless the card
+    // beats everything outstanding", an Ace beats everything outstanding by
+    // definition, and second hand played its Ace on every low lead.
+    //
+    // The written rule had a second exception - "unless the card beats
+    // everything still outstanding" - and it was removed 2026-08-19 after being
+    // measured, because an Ace beats everything outstanding BY DEFINITION, so
+    // the exception swallowed the rule: second hand played its master card on
+    // every low lead and promoted declarer's whole holding. Traced on
+    // finesse.html seed 733110, trick 3: dummy led the 8 from K-J-9-8, the
+    // policy left East one legal card out of four and it was the Ace.
+    // A-B measured on identical deals against a fixed declarer, exception in
+    // vs out: finesse -0.25 tricks to declarer, holdup -0.12, trump-draw 0.00.
+    // Never worse, so it is out. What the exception was reaching for - "this
+    // wins now and would not win later" - is not decidable from one trick, and
+    // guessing at it is what cost the tricks.
+    const ledCard = trick.plays[0].card;
+    if (ledCard.rank >= 11 && beats.length > 0) return [lowestOf(beats)];
+    const outstanding = outstandingIn(state, seat, ledSuit, knowledge);
+    const sureSpots = following.filter((c) => c.rank <= 10 && c.rank > topRankOf(outstanding));
+    // "Would my cheap card win" has to be asked about the cards still to come,
+    // not about the ones already on the table - wouldWinTrick only knows the
+    // latter, and using it here made the exception never fire.
+    if (sureSpots.length > 0 && lowestOf(following).rank < topRankOf(outstanding)) {
+      return [lowestOf(sureSpots)];
+    }
+    return [lowestOf(following)];
+  }
+
+  // Void in the led suit.
+  if (trump) {
+    // RULE 5 - ruff with the cheapest trump that actually takes the trick.
+    const ruffs = legal.filter((c) => c.suit === trump && wouldWinTrick(c, seat, trick));
+    if (ruffs.length > 0) return [lowestOf(ruffs)];
+  }
+  // RULE 6 - discarding never throws a trump away while anything else is held.
+  const notTrump = trump ? legal.filter((c) => c.suit !== trump) : legal;
+  return keep(restrictDiscardCandidates(notTrump.length ? notTrump : legal, trick)) || legal;
+}
+
+// ---- leads ------------------------------------------------------------------
+// Choosing WHICH suit to lead is left to each module's opening-lead conventions:
+// they carry information to partner, and nothing here models that. Which CARD to
+// take out of the chosen suit is a different question, and one rule belongs to
+// this file.
+//
+// Do not lead a low card out of a suit whose top card you already hold. Measured
+// 2026-08-19 on holdup.html board 535148308, the hand Itzik the teacher reported as unmakeable
+// - and he was right, it is worth eight tricks. It scored nine in every
+// simulation because East, holding Q-J-4 with both of them good, led the FOUR
+// into declarer's 8-9 and handed back the trick. Fourth-best is a rule for
+// attacking a suit, not for cashing one that is already established.
+//
+// The cheapest of a touching run at the top wins the trick just as well and keeps
+// the higher card, the same reasoning as third hand high.
+// Which SUIT a defender leads when they win a trick in the middle of the hand.
+// Until 2026-08-19 the answer came from the opening-lead conventions every single
+// time, as if the hand had just started: a defender could be sitting on cards
+// that beat everything left in a suit and still open a fresh one instead.
+//
+// The rule here is the first one a beginner is taught about being on lead with
+// winners: cash them. A card counts as a winner only against what this seat can
+// actually see is still out - its own hand, the dummy, and every card already
+// played - so it is the same "closed" knowledge the rest of the defence uses.
+// Among suits that qualify, the one with the most winners goes first, and length
+// breaks a tie.
+//
+// Only defenders. Declarer's lead is the module's own scripted line, and the
+// heuristic player that stands in for him inside the generators is a measuring
+// baseline rather than a player to improve.
+// MEASURED AND REJECTED, 2026-08-19 - a defender who CASHES when on lead.
+//
+// Itzik the teacher asked for it directly: teach the defence to look at what was led to it
+// and which cards have gone, and then choose a suit. It was built twice and
+// measured twice, and both versions are out.
+//
+//   version 1, cash a winner in any suit:      holdup.html deal generation
+//                                              0.32 seconds -> 57 seconds
+//   version 2, cash only in a suit our own
+//   side had already led:                      0.32 seconds -> 27 seconds
+//
+// Generation time is the honest measure here, because it is the filters
+// speaking: a module only hands out a deal where correct play still reaches its
+// trick target, and against a defence that banks its winners on sight almost
+// nothing the twenty-six modules build does. The exercises are constructed
+// around a defence that does not cash, and making the defence right means
+// rebuilding them, not tuning a rule.
+//
+// What survived is the half that costs nothing: policyLeadCard below fixes WHICH
+// CARD comes out of the suit the conventions already chose. That is what the
+// reported hand turned on - East led the 4 from Q-J-4 with both of them good.
+// Choosing the SUIT is still the conventions' job, and it is the open problem.
+
+function policyLeadCard(state, seat, knowledge) {
+  const card = chooseLeadForNewTrick(state, seat);
+  const mine = state.hands[seat].filter((c) => c.suit === card.suit);
+  if (mine.length < 2) return card;
+  const outstanding = outstandingIn(state, seat, card.suit, knowledge || "closed");
+  const winners = mine.filter((c) => c.rank > topRankOf(outstanding));
+  if (winners.length === 0) return card;
+  if (winners.some((c) => c.rank === card.rank)) return card;
+  return cheapestOfTouchingTop(winners);
+}
+
+// The deterministic policy: the hard rules, with no search at all. This is what
+// the scripted declarer uses, and what a Monte Carlo defender falls back to.
+function pickPolicyCard(state, seat, knowledge) {
+  const candidates = policyCandidates(state, seat, knowledge || "closed");
+  if (candidates.length === 1) return candidates[0];
+  if (state.currentTrick.plays.length === 0) return policyLeadCard(state, seat, knowledge);
+  return lowestOf(candidates);
+}
+// <<< card-policy.js
+
+function pickHeuristicCard(state, seat) {
+  // Leads keep their own convention; everything else is the shared rules.
+  // "open" knowledge is right here: this runs inside generator simulations and
+  // inside Monte Carlo rollouts, where the layout being played is known.
+  if (state.currentTrick.plays.length === 0) return policyLeadCard(state, seat, "open");
+  return pickPolicyCard(state, seat, "open");
+}
+
+// ---------- Monte Carlo defense ----------
+// Real card-reading, added on top of the positional baseline (2026-08-01).
+// A defender doesn't know declarer's hand or partner's hand - only their
+// own hand, dummy, and what's been played (including which suits the two
+// hidden hands have already shown out of). At any decision with 2+ legal
+// cards: sample many plausible completions of the two hidden hands
+// (respecting exact remaining counts and known voids), roll out the rest of
+// the hand under each sample using the SAME shared heuristic policy for all
+// four seats, and play whichever legal card wins the most tricks for the
+// defense on average. This is the standard technique real bridge-playing
+// programs (e.g. GIB) use, simplified: no bidding to infer from, and only 2
+// hidden hands instead of 3 since dummy is already exposed in NT.
+//
+// Verified headless (2026-08-01): sampling always respects counts/voids
+// (500 trials, 0 violations); full-hand play never crashes (60-seed fuzz,
+// 0 failures); and it's a REAL improvement, not just theoretically nicer -
+// measured against the identical random-legal declarer stream, Monte Carlo
+// defense averaged 6.69 tricks vs 6.41 for the positional-only baseline
+// (150 deals). Modest but genuine; a stronger declarer might narrow or
+// widen that gap - untested, since there's no declarer AI here yet.
+function deriveVoids(state) {
+  const voids = { N: new Set(), E: new Set(), S: new Set(), W: new Set() };
+  const allTricks = [...state.completedTricks, state.currentTrick];
+  for (const trick of allTricks) {
+    if (trick.plays.length === 0) continue;
+    const ledSuit = trick.plays[0].card.suit;
+    for (const p of trick.plays) if (p.card.suit !== ledSuit) voids[p.seat].add(ledSuit);
+  }
+  return voids;
+}
+
+function unseenPoolFor(state, deciderSeat) {
+  const known = new Set([...state.hands[deciderSeat], ...state.hands.N].map(cardKey));
+  const played = new Set();
+  for (const t of [...state.completedTricks, state.currentTrick]) for (const p of t.plays) played.add(cardKey(p.card));
+  const pool = [];
+  for (const suit of SUITS) for (const rank of RANKS) {
+    const key = suit + rank;
+    if (!known.has(key) && !played.has(key)) pool.push({ suit, rank });
+  }
+  return pool;
+}
+
+// Samples a full, void-respecting completion of the two hands hidden from
+// deciderSeat (South, and whichever of E/W isn't deciding). Returns a full
+// `hands` object, or null if it couldn't satisfy the voids after maxAttempts
+// tries (caller should treat that sample as unusable, not crash).
+function sampleCompletion(state, deciderSeat, voids, rng, maxAttempts) {
+  const hiddenSeats = SEATS.filter((s) => s !== deciderSeat && s !== "N");
+  const counts = {};
+  for (const s of hiddenSeats) counts[s] = state.hands[s].length;
+  const pool = unseenPoolFor(state, deciderSeat);
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const shuffled = shuffle(pool, rng);
+    const [a, b] = hiddenSeats;
+    const assignment = { [a]: [], [b]: [] };
+    const remaining = { [a]: counts[a], [b]: counts[b] };
+    let ok = true;
+    for (const card of shuffled) {
+      const aOk = !voids[a].has(card.suit) && remaining[a] > 0;
+      const bOk = !voids[b].has(card.suit) && remaining[b] > 0;
+      if (aOk && bOk) {
+        const target = rng() < remaining[a] / (remaining[a] + remaining[b]) ? a : b;
+        assignment[target].push(card); remaining[target]--;
+      } else if (aOk) { assignment[a].push(card); remaining[a]--; }
+      else if (bOk) { assignment[b].push(card); remaining[b]--; }
+      else { ok = false; break; }
+    }
+    if (ok && remaining[a] === 0 && remaining[b] === 0) {
+      const hands = { N: state.hands.N.slice(), [deciderSeat]: state.hands[deciderSeat].slice() };
+      hands[a] = assignment[a]; hands[b] = assignment[b];
+      return hands;
+    }
+  }
+  return null;
+}
+
+function rolloutDefenseTricks(hands, state, seat, candidateCard) {
+  let s = { hands: { N: hands.N.slice(), E: hands.E.slice(), S: hands.S.slice(), W: hands.W.slice() },
+    currentTrick: { leader: state.currentTrick.leader, plays: state.currentTrick.plays.slice() },
+    completedTricks: state.completedTricks.slice(), turn: state.turn };
+  s = playCard(s, seat, candidateCard);
+  let guard = 0;
+  while (!isHandComplete(s)) {
+    if (++guard > 200) break; // safety valve, should never trigger on a legal 13-trick hand
+    const card = pickHeuristicCard(s, s.turn);
+    s = playCard(s, s.turn, card);
+  }
+  return tricksWon(s).defenseSide;
+}
+
+const MC_SAMPLES = 30;
+
+function pickMonteCarloCard(state, seat, rng) {
+  const options = legalPlays(state, seat);
+  if (options.length === 1) return options[0]; // no decision to make
+  // Leading a new trick uses standard opening-lead conventions (4th-best, top of
+  // sequence, longest suit) directly, NOT Monte Carlo scoring: those conventions
+  // exist to tell partner which suit to continue and roughly how many cards are
+  // held there, and a card picked by abstract statistical scoring carries no
+  // such meaning.
+  if (state.currentTrick.plays.length === 0) return policyLeadCard(state, seat, "closed");
+  // Hard rules decide what is ALLOWED; the search only picks among those. It
+  // used to choose freely from every legal card, and sampling noise produced
+  // plays no beginner is taught - an Ace dropped on partner's King, third hand
+  // ducking from A-K (Itzik the teacher, 19/8/26). When the rules leave one card there is
+  // nothing to sample, which is most of the time.
+  const candidates = policyCandidates(state, seat, "closed");
+  if (candidates.length === 1) return candidates[0];
+  const voids = deriveVoids(state);
+  let best = null, bestScore = -1;
+  for (const card of candidates) {
+    let total = 0, samples = 0;
+    for (let i = 0; i < MC_SAMPLES; i++) {
+      const completion = sampleCompletion(state, seat, voids, rng, 25);
+      if (!completion) continue;
+      total += rolloutDefenseTricks(completion, state, seat, card);
+      samples++;
+    }
+    const score = samples > 0 ? total / samples : 0;
+    if (score > bestScore || (score === bestScore && best && card.rank < best.rank)) { bestScore = score; best = card; }
+  }
+  return best || pickHeuristicCard(state, seat);
+}
+
+// Filters below defend with defenderCard, the same solver-backed defence the
+// student meets. Until 2026-08-21 they used pickMonteCarloCard, the cheap one,
+// so every deal was selected against a weaker opponent than the one it would
+// face. Measured that day: 11 of 230 deals fell outside the trick window
+// against the old defence, 134 of 230 against the new one.
+// ---------- solver-backed defence ----------
+// The solver sees only what a defender sees: this seat's cards, dummy, and what
+// has been played. It returns null if it could not be loaded or could not build
+// a consistent deal, and then the old policy plays the card.
+// Thirty sampled deals while the student plays, three while the generator is
+// filtering. Same defence either way - what changes is how finely it is asked.
+//
+// The generator plays a whole hand out for every candidate deal and tries dozens
+// of candidates, so the two numbers are not comparable in cost. Measured
+// 2026-08-21 on finesse.html: at thirty samples in the filters, ONE deal took
+// 161 seconds and consulted the solver 1477 times.
+const PLAY_DEFENCE_SAMPLES = 30;
+const FILTER_DEFENCE_SAMPLES = 3;
+
+// ---------- what a defender is allowed to lead ----------
+// Itzik the teacher, 2026-08-26: "שמגן לא יוביל בסדרה שאני עוקף". He found it on the double
+// finesse page - he won a trick, the defence handed the suit straight back into
+// his tenace, and the finesse he was being taught to take was a gift instead.
+// Measured the same day on ten boards of every finesse page, counting only the
+// leads where the defender held something else: finesse 5, ace-sequence 1,
+// queen-jack-ten 10, king-doubleton 26, jack 4.
+//
+// The solver is not playing badly there and it is not a bug. It answers with a
+// card that scores as well as any other, and once the contract is decided both
+// ways every card scores the same - so it picks one, and to a human eye it looks
+// like help. So the choice is narrowed BEFORE the solver is asked, and the
+// solver still picks the card inside the suit.
+//
+// Only on lead. Following suit is untouched, and the solver keeps every legal
+// card there. And a defender left holding nothing but the finessed suit leads
+// it: a forced lead is not a mistake.
+function defenderLeadOptions(state, seat) {
+  const legal = legalPlays(state, seat);
+  if (state.currentTrick.plays.length) return legal; // following, not leading
+  const away = legal.filter((c) => c.suit !== TESTED_SUIT);
+  return away.length ? away : legal;
+}
+
+function defenderCard(state, seat, rng, samples) {
+  const options = defenderLeadOptions(state, seat);
+  if (typeof self !== "undefined" && typeof self.ddsDefenceCard === "function") {
+    try {
+      const card = self.ddsDefenceCard(state, seat, {
+        strain: CONTRACT.strain,
+        declarer: CONTRACT.declarer,
+        dummy: partnerOf(CONTRACT.declarer),
+        // Thirty sampled deals per decision, not eight. Itzik the teacher, 2026-08-21:
+        // "אין תלמיד שמשחק פחות מ-3 דקות" - a hand lasts minutes and a decision
+        // costs milliseconds, so there is no reason to be stingy. Thirty is also
+        // what MC_SAMPLES has always been for the old defence.
+        samples: samples || PLAY_DEFENCE_SAMPLES,
+        legal: options,
+        rng,
+      });
+      if (card) return card;
+    } catch (err) {
+      // A broken solver must never stop the student's hand.
+      console.warn("solver defence unavailable, falling back", err);
+    }
+  }
+  // The old defence chooses from its own legal list, so a card it returns from
+  // outside the narrowed one is put back inside it.
+  const fallback = pickMonteCarloCard(state, seat, rng);
+  return options.some((c) => cardKey(c) === cardKey(fallback)) ? fallback : lowestOf(options);
+}
+
+// ---------- the contract has to be makeable ----------
+// One question to the solver, asked before the opening lead so the defence
+// still gets to choose it: with both sides perfect, how many tricks does
+// declarer take. The window is the contract, or the contract plus one - Itzik the teacher's
+// rule for the whole project. Below it the deal is impossible and the technique
+// cannot save it; above it the technique is not what decides.
+//
+// Nothing else in this generator asks this. Every other filter judges a deal by
+// playing it against a defence that samples a few hidden layouts, and a sampled
+// defence can miss the suit that beats the contract. finesse.html seed 1237
+// passed all eight filters with a ceiling of 8.
+//
+// No solver means no opinion, not a rejection: a page opened straight off the
+// disk still deals hands, exactly as it did before.
+function ceilingOutOfWindow(hands) {
+  const ask = typeof self !== "undefined" ? self.ddCeiling : null;
+  if (typeof ask !== "function") return false;
+  const tricks = ask(hands, CONTRACT.strain, CONTRACT.declarer);
+  if (typeof tricks !== "number") return false;
+  const needed = CONTRACT.level + 6;
+  return tricks < needed || tricks > needed + 1;
+}
+
+// ---------- the checked bank ----------
+// Written by tools/stamp-module-bank.mjs. Do not edit by hand - rebuild the bank
+// and stamp it again.
+//
+// Each row is the module's own deal configuration and the four hands as
+// "spades.hearts.diamonds.clubs", North East South West. Every board was solved
+// before it was written down: the contract makes, and by no more than one
+// overtrick.
+const MODULE_BANK = [{"s":7919,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"N"},"h":"K62.93.AQ53.Q862 .J864.J974.T9754 A983.AQT7.T62.AJ QJT754.K52.K8.K3"},{"s":348436,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"N"},"h":"K862.AQ63.T64.J3 Q74.85.KJ5.Q9876 AT3.T72.A973.AK5 J95.KJ94.Q82.T42"},{"s":213813,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"S"},"h":"AJ2.AJ43.Q52.863 KQT4.962.T9763.K 763.Q5.AJ84.AQJ5 985.KT87.K.T9742"},{"s":372193,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"N"},"h":"AQJ7.63.KT92.QJ2 KT4.QJ742.Q865.7 853.AK5.AJ4.K643 962.T98.73.AT985"},{"s":79190,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"S"},"h":"A854.653.A7.JT73 Q.KJ874.QJT4.K84 KJ3.AQ92.K52.A95 T9762.T.9863.Q62"},{"s":380112,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"N"},"h":"63.KT92.QJ2.AQJ7 QJ742.Q865.7.KT4 AK5.AJ4.K643.853 T98.73.AT985.962"},{"s":902766,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"S"},"h":"AK87.T843.JT2.AJ T6.AQJ5.K765.K74 J542.K2.AQ83.QT9 Q93.976.94.86532"},{"s":942361,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"N"},"h":"A873.AQ54.K7.853 9.9863.J9862.K74 KT2.J72.Q53.AQT9 QJ654.KT.AT4.J62"},{"s":403869,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"S"},"h":"Q542.AJT.KQ8.T93 T83.87.A976.KJ84 KJ9.K96.J43.AQ62 A76.Q5432.T52.75"},{"s":641439,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"S"},"h":"AK87.JT2.T843.AJ T6.K765.AQJ5.K74 J542.AQ83.K2.QT9 Q93.94.976.86532"},{"s":15838,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"N"},"h":"A873.K7.853.AQ54 9.J9862.K74.9863 KT2.Q53.AQT9.J72 QJ654.AT4.J62.KT"},{"s":356355,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"S"},"h":"985.AJ43.K85.T42 KJ62.Q8765.J942. AQT3.K92.AT.A985 74.T.Q763.KQJ763"},{"s":475140,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"N"},"h":"63.AQJ7.KT92.QJ2 QJ742.KT4.Q865.7 AK5.853.AJ4.K643 T98.962.73.AT985"},{"s":506816,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"S"},"h":"A7.KJ76.A863.T74 85.A5.KJT97.K982 QJ42.Q98.Q4.AQJ6 KT963.T432.52.53"},{"s":736467,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"N"},"h":"AQ74.9532.KJ4.T6 96.KJ7.T532.J543 J53.AT86.A8.AK97 KT82.Q4.Q976.Q82"},{"s":47514,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"S"},"h":"QT43.T85.AT9.AK5 875.J3.Q7653.872 A62.AQ96.J42.J63 KJ9.K742.K8.QT94"},{"s":879009,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"N"},"h":"J842.JT7.AQT7.96 A53.Q85.K863.K83 KT.AK63.J42.AQJ2 Q976.942.95.T754"},{"s":815657,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"S"},"h":"AK87.T85.QT6.853 5.3.J87542.KJ942 JT64.KQ6.K3.AQ76 Q932.AJ9742.A9.T"},{"s":166299,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"N"},"h":"T652.AQ83.QT3.K6 J873.J.A8742.J94 AQ94.642.KJ5.A82 K.KT975.96.QT753"},{"s":522654,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"S"},"h":"J43.A6.8654.AJT9 KT72.KJ53.K9.653 AQ86.QT4.AT2.K82 95.9872.QJ73.Q74"},{"s":863171,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"N"},"h":"A953.K5.A64.AQ85 J2.QJ9843.KT8.K7 K64.AT76.Q92.942 QT87.2.J753.JT63"},{"s":102947,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"S"},"h":"AK.T842.J52.AT86 QT643.J763.9.975 J872.KQ.AQT4.QJ3 95.A95.K8763.K42"},{"s":95028,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"S"},"h":"A83.KQ75.Q98.JT5 542.A932.754.K43 KT96.J8.AJ2.AQ76 QJ7.T64.KT63.982"},{"s":530573,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"N"},"h":"T652.QT3.AQ83.K6 J873.A8742.J.J94 AQ94.KJ5.642.A82 K.96.KT975.QT753"},{"s":467221,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"S"},"h":"A82.T82.Q942.AJ9 J9.K64.KT83.Q864 QT4.AQJ7.AJ6.T53 K7653.953.75.K72"},{"s":498897,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"N"},"h":"AQ83.T652.QT3.K6 J.J873.A8742.J94 642.AQ94.KJ5.A82 KT975.K.96.QT753"},{"s":633520,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"S"},"h":"KT.AK63.J42.AQJ2 A53.Q85.K863.K83 J842.JT7.AQT7.96 Q976.942.95.T754"},{"s":791900,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"N"},"h":"T43.K6.QT32.AQJ3 KJ85.Q97.764.874 AQ62.A843.A9.T62 97.JT52.KJ85.K95"},{"s":31676,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"S"},"h":"J52.T87.A65.AJT2 T984.52.KQ72.964 AQ73.AK9.T9.K873 K6.QJ643.J843.Q5"},{"s":277165,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"N"},"h":"K96.AQ52.Q97.KQ2 QT543.KT8.J2.943 AJ8.J74.K63.8765 72.963.AT854.AJT"},{"s":174218,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"S"},"h":"A82.Q942.AJ9.T82 J9.KT83.Q864.K64 QT4.AJ6.T53.AQJ7 K7653.75.K72.953"},{"s":451383,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"N"},"h":"AQ65.J74.Q832.K9 KT.932.KJ654.862 J87.AT85.AT.AJ73 9432.KQ6.97.QT54"},{"s":182137,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"S"},"h":"QT8.982.KJ65.A62 632.T43.Q982.K84 A54.AQJ6.AT.Q973 KJ97.K75.743.JT5"},{"s":388031,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"N"},"h":"J74.Q832.K9.AQ65 932.KJ654.862.KT AT85.AT.AJ73.J87 KQ6.97.QT54.9432"},{"s":126704,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"S"},"h":"A83.KQ75.JT5.Q98 542.A932.K43.754 KT96.J8.AQ76.AJ2 QJ7.T64.982.KT63"},{"s":55433,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"N"},"h":"A4.J876.AQ87.KJ4 7.A5.T64.T987652 KJ92.KT43.J95.A3 QT8653.Q92.K32.Q"},{"s":142542,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"S"},"h":"T72.AJT3.KJ.KQ75 J3.987.7654.T862 AQ95.Q652.Q92.J9 K864.K4.AT83.A43"},{"s":71271,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"N"},"h":"KQ.AT64.KJ5.AQ85 A843.K2.Q9874.43 T62.J973.AT2.JT9 J975.Q85.63.K762"},{"s":483059,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"S"},"h":"AK.J52.T842.AT86 QT643.9.J763.975 J872.AQT4.KQ.QJ3 95.K8763.A95.K42"},{"s":23757,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"N"},"h":"T652.QT3.K6.AQ83 J873.A8742.J94.J AQ94.KJ5.A82.642 K.96.QT753.KT975"},{"s":886928,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"S"},"h":"765.AT72.A8.AQ32 KJ82.K54.9632.KJ AQT4.Q96.QJ5.964 93.J83.KT74.T875"},{"s":300922,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"N"},"h":"A4.AQ87.J876.KJ4 7.T64.A5.T987652 KJ92.J95.KT43.A3 QT8653.K32.Q92.Q"},{"s":269246,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"S"},"h":"AJ43.K85.T42.985 Q8765.J942..KJ62 K92.AT.A985.AQT3 T.Q763.KQJ763.74"},{"s":411788,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"N"},"h":"A2.JT97.AQ87.K87 Q43.K864.J62.Q96 KJ98.A53.953.AT2 T765.Q2.KT4.J543"},{"s":617682,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"S"},"h":"AJ64.T84.932.AJ3 K875.K72.T86.754 Q32.AQ93.AK5.T98 T9.J65.QJ74.KQ62"},{"s":459302,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"S"},"h":"J98.A63.T62.K652 7.T9874.84.JT874 AQ62.KJ5.AK73.A9 KT543.Q2.QJ95.Q3"},{"s":823576,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"N"},"h":"AK.652.QJ54.AQT2 Q732.QT7.T7.K976 JT64.AK9.K96.853 985.J843.A832.J4"},{"s":39595,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"S"},"h":"A83.JT5.KQ75.Q98 542.K43.A932.754 KT96.AQ76.J8.AJ2 QJ7.982.T64.KT63"},{"s":237570,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"S"},"h":"A854.A7.653.JT73 Q.QJT4.KJ874.K84 KJ3.K52.AQ92.A95 T9762.9863.T.Q62"},{"s":293003,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"N"},"h":"J842.AQT7.JT7.96 A53.K863.Q85.K83 KT.J42.AK63.AQJ2 Q976.95.942.T754"},{"s":110866,"c":{"TESTED_SUIT":"S","HONOR_SEAT":"S"},"h":"J42.KT.AK63.AQJ2 K863.A53.Q85.K83 AQT7.J842.JT7.96 95.Q976.942.T754"},{"s":665196,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"N"},"h":"Q84.AQ97.98.AJ83 K62.K6532.53.KT4 AJT.T84.AK74.965 9753.J.QJT62.Q72"},{"s":593925,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"S"},"h":"A7.KJ76.T74.A863 85.A5.K982.KJT97 QJ42.Q98.AQJ6.Q4 KT963.T432.53.52"},{"s":720629,"c":{"TESTED_SUIT":"C","HONOR_SEAT":"S"},"h":"KJ93.AJ84.98.765 T54.Q75.T7543.T9 A72.KT2.KJ2.AQ42 Q86.963.AQ6.KJ83"},{"s":625601,"c":{"TESTED_SUIT":"H","HONOR_SEAT":"N"},"h":"AT72.AQ93.853.K2 J65.K75.KJT.QT94 Q93.JT6.AQ4.A876 K84.842.9762.J53"},{"s":253408,"c":{"TESTED_SUIT":"D","HONOR_SEAT":"S"},"h":"A82.Q942.T82.AJ9 J9.KT83.K64.Q864 QT4.AJ6.AQJ7.T53 K7653.75.953.K72"}];
+
+function bankRankOf(letter) {
+  return { A: 14, K: 13, Q: 12, J: 11, T: 10 }[letter] || Number(letter);
+}
+
+function bankHand(text) {
+  const out = [];
+  const suits = text.split(".");
+  for (let i = 0; i < 4; i++) {
+    for (const letter of suits[i]) out.push({ suit: ["S", "H", "D", "C"][i], rank: bankRankOf(letter) });
+  }
+  return out;
+}
+
+// The walk starts somewhere random so two sittings do not open alike, and then
+// runs in order - the bank is stored with each board put as far as it can be
+// from the one before it.
+let BANK_STEP = Math.floor(Math.random() * MODULE_BANK.length);
+
+function nextBankSeed() {
+  BANK_STEP = (BANK_STEP + 1) % MODULE_BANK.length;
+  return BANK_STEP + 1;
+}
+
+function boardLabel(seed) {
+  const n = ((Math.abs(seed) - 1) % MODULE_BANK.length) + 1;
+  return String(n).padStart(7, "0");
+}
+
+// Two ways back to the shape the board was made in, and the first is the one
+// that matters: setDealShape() re-runs the generator's own two lines from the
+// board's own seed. The recorded fields are a fallback for a module whose shape
+// is not decided by the seed alone.
+function applyBankRow(row) {
+  if (typeof setDealShape === "function" && row.s) setDealShape(row.s);
+  if (row.c.TESTED_SUIT !== undefined) TESTED_SUIT = row.c.TESTED_SUIT;
+  if (row.c.HONOR_SEAT !== undefined) HONOR_SEAT = row.c.HONOR_SEAT;
+}
+
+function bankDeal(seed) {
+  const at = ((Math.abs(seed) - 1) % MODULE_BANK.length + MODULE_BANK.length) % MODULE_BANK.length;
+  const row = MODULE_BANK[at];
+  applyBankRow(row);
+  const parts = row.h.split(" ");
+  const hands = { N: bankHand(parts[0]), E: bankHand(parts[1]), S: bankHand(parts[2]), W: bankHand(parts[3]) };
+  for (const seat of ["N", "E", "S", "W"]) {
+    if (hands[seat].length !== 13) throw new Error("bank row is not a legal deal");
+  }
+  return hands;
+}
+
+function generateFinesseDeal(seed) {
+  if (typeof RAW_DEAL_MODE !== "undefined" && RAW_DEAL_MODE) return generateFinesseDealLegacy(seed);
+  if (!MODULE_BANK.length) return generateFinesseDealLegacy(seed);
+  return bankDeal(seed);
+}
+// ---------- end of the checked bank ----------
+
+
+// ---------- the defence, asked ahead of time ----------
+// A defender's card as a pure function of the position: the same cards played
+// in the same order always get the same card back. That is what lets the page
+// work the answer out before the position is reached and look it up when it is,
+// and it is why the seed is the position rather than a running stream.
+//
+// Undo and "the same hand again" now give the same defence too, which they did
+// not before.
+function defencePositionKey(state, seat) {
+  const parts = [];
+  for (const trick of state.completedTricks) {
+    for (const p of trick.plays) parts.push(p.seat + p.card.suit + p.card.rank);
+  }
+  for (const p of state.currentTrick.plays) parts.push(p.seat + p.card.suit + p.card.rank);
+  return seat + "|" + parts.join(",");
+}
+
+function defencePositionSeed(key) {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) h = (Math.imul(h ^ key.charCodeAt(i), 16777619)) >>> 0;
+  return h;
+}
+
+function positionalDefenceCard(state, seat) {
+  return defenderCard(state, seat, mulberry32(defencePositionSeed(defencePositionKey(state, seat))), PLAY_DEFENCE_SAMPLES);
+}
+
+// ---------- app ----------
+let seed = nextBankSeed();
+let state = null;
+let dealtHands = null;   // the deal as it was handed out, for the reveal at the end
+let dealSnapshot = null; // original 13-card hands, set once per deal in startDeal
+let openingLeadCard = null;
+let finished = false;
+let systemRng = null; // Monte Carlo's own randomness, reseeded per deal so "same deal" replays identically
+let planningPhase = false; // true from right after the opening lead until the student clicks "start playing"
+let safeTricksAnswer = 0; // correct answer for this deal, computed once and checked against the student's guess
+let safeTricksAttempts = 0; // wrong guesses so far on step 1, reset per deal - 2nd wrong guess reveals the answer
+
+// Rotating feedback text (Itzik the teacher, 2026-08-07: "בלי כתב AI, כתב רגיל של בני
+// אדם") - a fixed sentence repeated every deal reads like a bot; picking
+// randomly among a few plain variants keeps it feeling like a person.
+const SAFE_TRICKS_CORRECT_VARIANTS = ["תשובה נכונה.", "תשובה מדויקת.", "בדיוק ככה.", "כן, נכון."];
+const SAFE_TRICKS_RETRY_VARIANTS = ["נסה שנית.", "בדוק שוב.", "טעית, ספור שנית."];
+function randomVariant(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// A "safe trick" (Itzik the teacher's planning-dialogue term) = a card N+S can cash
+// without ever risking the lead - i.e. every card ranked ABOVE it in that
+// suit is also held by N+S, so no defender can possibly beat it. Walk each
+// suit from the Ace down and count consecutive N/S-held ranks; stop at the
+// first rank NOT held by N/S (a defender could hold something higher than
+// whatever comes next, so nothing past that point is "safe" yet). This is a
+// simple, honest heuristic - not a double-dummy solver (none is available in
+// this project, see docs/01-spec.md) - but it matches the real beginner
+// planning technique: count top-down winners before touching anything else.
+function countSafeTricks(handN, handS) {
+  const combined = [...handN, ...handS];
+  let total = 0;
+  for (const suit of SUITS) {
+    const heldRanks = new Set(combined.filter((c) => c.suit === suit).map((c) => c.rank));
+    for (let rank = 14; rank >= 2; rank--) {
+      if (!heldRanks.has(rank)) break;
+      total++;
+    }
+  }
+  return total;
+}
+
+// Same walk as countSafeTricks, but per suit - used only when the student
+// gets the count wrong twice in a row, to count together suit by suit
+// instead of just handing over the total (Itzik the teacher, 2026-08-07).
+function countSafeTricksBySuit(handN, handS) {
+  const combined = [...handN, ...handS];
+  const bySuit = {};
+  for (const suit of SUITS) {
+    const heldRanks = new Set(combined.filter((c) => c.suit === suit).map((c) => c.rank));
+    let count = 0;
+    for (let rank = 14; rank >= 2; rank--) {
+      if (!heldRanks.has(rank)) break;
+      count++;
+    }
+    bySuit[suit] = count;
+  }
+  return bySuit;
+}
+
+// Puts the crow up, gives the browser one real frame to paint it, and only then
+// runs the work. Without the double requestAnimationFrame the overlay is added
+// to the DOM and the generator starts in the same frame, so nothing is ever
+// drawn and the page just freezes - which is the whole problem this exists for.
+// How long the last few deals took to generate, and the bar above which the crow
+// is worth showing. There is no way to know in advance how long THIS deal will
+// take - the generator is synchronous, and once it starts nothing can be painted
+// - so the decision is made from the module's own recent history. In practice it
+// settles per module: the heavy ones always show it, the quick ones never do.
+const DEAL_TIMES = [];
+const CROW_THRESHOLD_MS = 1200;
+function recordDealTime(ms) {
+  DEAL_TIMES.push(ms);
+  if (DEAL_TIMES.length > 3) DEAL_TIMES.shift();
+}
+function dealIsSlow() {
+  if (MODULE_BANK.length) return false;   // no waiting, so no waiting notice
+  if (DEAL_TIMES.length === 0) return false;
+  const sorted = DEAL_TIMES.slice().sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] >= CROW_THRESHOLD_MS;
+}
+
+// ---------- the next deal, made while the student reads this one ----------
+// Generating a deal costs seconds in the heavier modules, and the play ending is
+// the one moment when that time is free: the hand is over, all four hands are on
+// screen, and the student is looking at them. The result is kept until the next
+// "יד חדשה", which then costs nothing.
+let readyDeal = null; // { seed, hands, config }
+
+// A generator sets the module's configuration as a side effect. Behind a
+// finished hand that would be corruption - "replay the same deal" would rebuild
+// it with the wrong suit - so the configuration is saved, the deal is made, and
+// the configuration is put straight back.
+function captureDealConfig() {
+  return { TESTED_SUIT, HONOR_SEAT };
+}
+function restoreDealConfig(saved) {
+  TESTED_SUIT = saved.TESTED_SUIT;
+  HONOR_SEAT = saved.HONOR_SEAT;
+}
+
+// ---------- generation off the main thread ----------
+// Making a deal now plays hands out against the solver-backed defence, and that
+// costs seconds rather than milliseconds. On the main thread those seconds are a
+// frozen screen. A Worker has its own thread, so the student never sees them.
+//
+// The worker is built out of this page's own source: everything above the app
+// marker is exactly what a generator needs, and the solver comes in through
+// importScripts. If anything in that chain is unavailable - no Worker, or a
+// page opened straight off the disk where fetch is blocked - dealWorker stays
+// null and generation simply happens on the main thread as before.
+let dealWorker = null;
+let dealWorkerBusy = false;
+
+function startDealWorker() {
+  if (dealWorker || dealWorker === false || typeof Worker === "undefined") return;
+  dealWorker = false; // "tried already", so a failure does not retry on every hand
+  fetch(location.href)
+    .then((r) => r.text())
+    .then((html) => {
+      const open = html.indexOf("<script>");
+      const logic = html.slice(html.indexOf(">", open) + 1, html.indexOf("// ---------- app ----------"));
+      const base = new URL(".", location.href).href;
+      const src = "var Module = {};\n"
+        + "importScripts(" + JSON.stringify(base + "engine/dds/libdds.js") + ", "
+        + JSON.stringify(base + "engine/dds/browser.js") + ");\n"
+        + logic
+        + "\nself.onmessage = function (e) {\n"
+        + "  try {\n"
+        + "    if (e.data.kind === 'defend') {\n"
+        + "      var c = e.data.config;\n"
+        + "      TESTED_SUIT = c.TESTED_SUIT; HONOR_SEAT = c.HONOR_SEAT;\n"
+        + "      var card = positionalDefenceCard(e.data.state, e.data.seat);\n"
+        + "      self.postMessage({ ok: true, kind: 'defend', key: e.data.key, card: card });\n"
+        + "      return;\n"
+        + "    }\n"
+        + "    var hands = generateFinesseDeal(e.data.seed);\n"
+        + "    self.postMessage({ ok: true, seed: e.data.seed, hands: hands,\n"
+        + "      config: { TESTED_SUIT: TESTED_SUIT, HONOR_SEAT: HONOR_SEAT } });\n"
+        + "  } catch (err) { self.postMessage({ ok: false, kind: e.data.kind, key: e.data.key, error: String(err) }); }\n"
+        + "};\n";
+      const worker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+      worker.onmessage = (e) => {
+        const data = e.data || {};
+        if (data.kind === "defend") {
+          if (data.ok && data.card) defenceCache.set(data.key, data.card);
+          defenceAsking = null;
+          pumpDefenceQueue();
+          return;
+        }
+        dealWorkerBusy = false;
+        if (data.ok) readyDeal = { seed: data.seed, hands: data.hands, config: data.config };
+      };
+      worker.onerror = () => { dealWorker = false; dealWorkerBusy = false; defenceAsking = null; };
+      dealWorker = worker;
+      pumpDefenceQueue();
+    })
+    .catch(() => { dealWorker = false; });
+}
+
+// ---------- the defence, worked out before it is needed ----------
+// Every answer the defence has already given, and the one being worked out now,
+// keyed by the position it belongs to.
+const defenceCache = new Map();
+const defenceWanted = new Map();
+const defenceQueue = [];
+let defenceAsking = null;
+const DEFENCE_CACHE_LIMIT = 400;
+
+function pumpDefenceQueue() {
+  if (defenceAsking !== null || !dealWorker || dealWorkerBusy) return;
+  while (defenceQueue.length) {
+    const key = defenceQueue.shift();
+    const want = defenceWanted.get(key);
+    defenceWanted.delete(key);
+    if (!want || defenceCache.has(key)) continue;
+    defenceAsking = key;
+    dealWorker.postMessage({
+      kind: "defend", key, seat: want.seat,
+      state: { hands: want.state.hands, completedTricks: want.state.completedTricks, currentTrick: want.state.currentTrick, turn: want.state.turn },
+      config: captureDealConfig(),
+    });
+    return;
+  }
+}
+
+function askDefenceFor(st) {
+  if (st.turn !== "E" && st.turn !== "W") return;
+  const key = defencePositionKey(st, st.turn);
+  if (defenceCache.has(key) || defenceWanted.has(key) || defenceAsking === key) return;
+  defenceWanted.set(key, { state: st, seat: st.turn });
+  defenceQueue.push(key);
+}
+
+// The position we are in, and every position one student card away from it.
+function speculateDefence() {
+  if (finished || !state) return;
+  startDealWorker();
+  askDefenceFor(state);
+  if (state.turn === "N" || state.turn === "S") {
+    const order = legalPlays(state, state.turn);
+    for (const card of order) {
+      let next;
+      try { next = playCard(state, state.turn, card); } catch (err) { continue; }
+      askDefenceFor(next);
+    }
+  }
+  if (defenceCache.size > DEFENCE_CACHE_LIMIT) defenceCache.clear();
+  pumpDefenceQueue();
+}
+
+function forgetDefence() {
+  defenceCache.clear();
+  defenceWanted.clear();
+  defenceQueue.length = 0;
+}
+
+function prepareNextDeal() {
+  if (MODULE_BANK.length) return;   // a bank deal is a lookup, nothing to prepare
+  if (readyDeal) return;
+  startDealWorker();
+  const nextSeed = nextBankSeed();
+  if (dealWorker && !dealWorkerBusy) {
+    dealWorkerBusy = true;
+    dealWorker.postMessage({ seed: nextSeed });
+    return;
+  }
+  if (dealWorkerBusy) return; // the worker is already making one
+  const saved = captureDealConfig();
+  try {
+    const hands = generateFinesseDeal(nextSeed);
+    readyDeal = { seed: nextSeed, hands, config: captureDealConfig() };
+  } catch (e) {
+    readyDeal = null;
+  } finally {
+    restoreDealConfig(saved);
+  }
+}
+
+// A short delay so the finished hand and its summary are on screen before the
+// thread is taken. A plain timer and not requestAnimationFrame: rAF does not fire
+// at all in a hidden or backgrounded tab, and this has to run there too - it is
+// exactly the case where the student has switched away and come back expecting
+// the next deal to be ready.
+function scheduleNextDeal() {
+  if (readyDeal) return;
+  setTimeout(prepareNextDeal, 400);
+}
+
+function takeReadyDeal() {
+  const d = readyDeal;
+  readyDeal = null;
+  return d;
+}
+
+function newDealWithNotice(work) {
+  const el = document.getElementById("dealWait");
+  // A deal made in advance costs nothing to hand over, so there is nothing to
+  // wait for and no crow to send.
+  if (!el || !dealIsSlow() || readyDeal) { work(); return; }
+  el.classList.add("on");
+  // The double frame is what lets the crow actually get painted before the
+  // generator blocks the thread. The timer is not a belt-and-braces extra: in a
+  // hidden or backgrounded tab requestAnimationFrame never fires at all, so
+  // without it the click would put the overlay up and never deal the hand.
+  // Whichever arrives first wins and the other becomes a no-op.
+  let ran = false;
+  const run = () => {
+    if (ran) return;
+    ran = true;
+    try { work(); } finally { el.classList.remove("on"); }
+  };
+  requestAnimationFrame(() => requestAnimationFrame(run));
+  setTimeout(run, 150);
+}
+
+function startDeal(useSeed) {
+  if (pendingSystemTimeout !== null) { clearTimeout(pendingSystemTimeout); pendingSystemTimeout = null; }
+  forgetDefence();
+  stateHistory = [];
+  seed = useSeed;
+  // Timed so the crow knows whether this module is one of the slow ones.
+  // A deal prepared at the end of the previous hand is used as it stands - it was
+  // made by the same generator, for this seed, with this configuration.
+
+  const __prepared = (readyDeal && readyDeal.seed === seed) ? takeReadyDeal() : null;
+  let hands;
+  if (__prepared) {
+    hands = __prepared.hands;
+    restoreDealConfig(__prepared.config);
+  } else {
+    const __genStart = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    hands = generateFinesseDeal(seed);
+    recordDealTime((typeof performance !== "undefined" ? performance.now() : Date.now()) - __genStart);
+  }
+  dealtHands = { N: hands.N.slice(), E: hands.E.slice(), S: hands.S.slice(), W: hands.W.slice() };
+  // Snapshot of the original 13-card deal, before any card is played (even
+  // the opening lead) - the post-hand "wasted winner" check replays from
+  // here, since state.hands only ever holds what's LEFT in each hand.
+  dealSnapshot = { N: hands.N.slice(), E: hands.E.slice(), S: hands.S.slice(), W: hands.W.slice() };
+  state = createPlayState(hands, "W");
+  finished = false;
+  trickPausePending = false;
+  systemRng = mulberry32(seed + 1);
+  document.getElementById("resultBanner").innerHTML = "";
+  // Opening lead is forced/system-played immediately so it can be shown pre-game.
+  openingLeadCard = chooseOpeningLead(state.hands.W);
+  state = playCard(state, "W", openingLeadCard);
+  renderBrief();
+  // Planning dialogue starts only now - after the lead is visible, since
+  // "safe tricks" is a real planning step that assumes you've already seen
+  // the lead and dummy, not something you can answer blind.
+  suitRevealed = false;
+  planningPhase = true;
+  speculateDefence();
+  safeTricksAnswer = countSafeTricks(state.hands.N, state.hands.S);
+  safeTricksAttempts = 0;
+  render();
+  renderSuitQuestion();
+}
+
+function renderBrief() {
+  document.getElementById("briefPanel").innerHTML = `
+    <div><b>החוזה:</b> <bdi>3NT</bdi></div>
+    <div><b>המכריז:</b> דרום</div>
+    <div><b>הדומם:</b> צפון</div>
+    <div><b>פגיעות:</b> ${VULNERABLE ? "פגיע" : "לא פגיע"}</div>
+    <div><b>ההובלה:</b> <bdi>${cardLabel(openingLeadCard)}</bdi> (מערב)</div>
+    <div style="opacity:0.6; font-size:12px;"><b>מספר יד:</b> <bdi>${boardLabel(seed)}</bdi></div>
+  `;
+}
+
+function groupBySuit(cards) {
+  const groups = { S: [], H: [], D: [], C: [] };
+  for (const card of cards) groups[card.suit].push(card);
+  for (const suit of SUITS) groups[suit].sort((a, b) => b.rank - a.rank);
+  return groups;
+}
+
+function suitColorClass(suit) { return (suit === "H" || suit === "D") ? "red" : "black"; }
+
+// Declarer/dummy hand rendering order - color-alternating (black/red/black/
+// red), NOT the usual rank order (S-H-D-C would give black/red/red/black).
+const HAND_LINE_SUIT_ORDER = ["S", "H", "C", "D"];
+
+// Renders a visible hand (North/South) as ONE straight line of cards across
+// all four suits (color-alternating order above), not one row per suit -
+// requested explicitly so the whole hand reads left-to-right in a single
+// glance instead of stacked rows.
+function renderHand(seat, elId) {
+  const el = document.getElementById(elId);
+  el.innerHTML = "";
+  el.className = "hand-line";
+  const legal = state.turn === seat && !finished && !trickPausePending && !planningPhase ? legalPlays(state, seat) : [];
+  const legalKeys = new Set(legal.map(cardKey));
+  const groups = groupBySuit(state.hands[seat]);
+  for (const suit of HAND_LINE_SUIT_ORDER) {
+    for (const card of groups[suit]) {
+      const btn = document.createElement("button");
+      btn.className = "rank-btn" + (suitColorClass(suit) === "red" ? " red" : "");
+      btn.innerHTML = `<span class="card-rank">${RANK_LABEL[card.rank]}</span><span class="card-suit">${SUIT_SYMBOL[suit]}</span>`;
+      const isLegal = legalKeys.has(cardKey(card));
+      // During the trick-completion pause, don't set the HTML `disabled`
+      // attribute even though nothing is legal - disabled buttons swallow
+      // click events entirely (they never fire, let alone bubble), which
+      // is exactly why clicking near your own hand while paused looked
+      // "stuck": the click never reached the body-level advance listener.
+      // onPlayerCard's own trickPausePending guard still blocks the play.
+      btn.disabled = !isLegal && !trickPausePending;
+      if (isLegal) btn.addEventListener("click", () => onPlayerCard(seat, card));
+      el.appendChild(btn);
+    }
+  }
+}
+
+// East/West hold the opponents' cards - never shown, only face-down
+// placeholders (still grouped by suit so the panel keeps the same shape).
+// Deliberately NOT grouped by suit like the visible hands - showing suit-by-
+// suit counts (or a "-" for an empty suit) would leak real information a
+// declarer isn't supposed to have (exact shape, voids) just by looking at
+// the table. One flat pile of face-down cards, count only.
+// The four hands AS DEALT, drawn only once the play is over. state.hands is
+// empty by then - every card has been played - so the full deal is kept aside in
+// dealtHands at startDeal and read back here. The cards are plain, unclickable,
+// and dimmed for the two hands the student could not see while playing.
+function renderRevealedHand(seat, elId) {
+  const el = document.getElementById(elId);
+  el.innerHTML = "";
+  el.className = "hand-line";
+  const source = (dealtHands && dealtHands[seat]) || state.hands[seat];
+  const groups = groupBySuit(source);
+  for (const suit of HAND_LINE_SUIT_ORDER) {
+    for (const card of groups[suit]) {
+      const btn = document.createElement("button");
+      btn.className = "rank-btn revealed" + (suitColorClass(suit) === "red" ? " red" : "");
+      btn.innerHTML = `<span class="card-rank">${RANK_LABEL[card.rank]}</span><span class="card-suit">${SUIT_SYMBOL[suit]}</span>`;
+      btn.disabled = true;
+      el.appendChild(btn);
+    }
+  }
+}
+
+function renderHiddenHand(seat, elId) {
+  const el = document.getElementById(elId);
+  el.innerHTML = "";
+  el.className = "hand-line";
+  for (let i = 0; i < state.hands[seat].length; i++) {
+    const back = document.createElement("div");
+    back.className = "rank-back";
+    el.appendChild(back);
+  }
+  // On a phone the backs are hidden and this line is shown instead - the only
+  // thing those thirteen cards ever told the student was how many are left.
+  const count = document.createElement("span");
+  count.className = "hand-count";
+  count.innerHTML = "<bdi>" + state.hands[seat].length + "</bdi> קלפים";
+  el.appendChild(count);
+}
+
+const TRICK_POSITION_CLASS = { N: "trick-tn", E: "trick-te", S: "trick-ts", W: "trick-tw" };
+
+function renderTrick(overridePlays) {
+  const el = document.getElementById("trickArea");
+  // trick count lives in the status line below the table (renderStatus) -
+  // showing it here too was redundant clutter in a very small space, and
+  // competed with "לחץ להמשך" for the same spot. This area now only ever
+  // shows the click-to-continue prompt, nothing during normal play.
+  el.classList.toggle("awaiting-click", !!overridePlays);
+  document.body.classList.toggle("awaiting-click", !!overridePlays);
+  el.innerHTML = overridePlays ? `<div class="trick-tc">לחץ להמשך</div>` : "";
+  const plays = overridePlays || state.currentTrick.plays;
+  const played = new Set();
+  for (const play of plays) {
+    played.add(play.seat);
+    const slot = document.createElement("div");
+    slot.className = TRICK_POSITION_CLASS[play.seat];
+    const colorClass = suitColorClass(play.card.suit);
+    slot.innerHTML = `<div class="card-btn ${colorClass}">${cardLabel(play.card)}</div>`;
+    el.appendChild(slot);
+  }
+  for (const seat of SEATS) {
+    if (played.has(seat)) continue;
+    const slot = document.createElement("div");
+    slot.className = TRICK_POSITION_CLASS[seat];
+    slot.innerHTML = `<div class="compass-letter">${seat}</div>`;
+    el.appendChild(slot);
+  }
+}
+
+function renderStatus() {
+  const { declarerSide, defenseSide } = tricksWon(state);
+  // numbers wrapped in <bdi> so the RTL BiDi algorithm doesn't reorder them
+  // oddly against the surrounding Hebrew - same pattern used elsewhere in
+  // this file (renderBrief's card labels).
+  const turnText = finished ? "" : ` | תור: ${SEAT_NAME[state.turn]}`;
+  document.getElementById("statusLine").innerHTML =
+    `לקיחות - כרוז/דומם: <bdi>${declarerSide}</bdi> | הגנה: <bdi>${defenseSide}</bdi>${turnText}`;
+}
+
+function render(overrideTrickPlays) {
+  if (finished) {
+    renderRevealedHand("N", "handN");
+    renderRevealedHand("S", "handS");
+  } else {
+    renderHand("N", "handN");
+    renderHand("S", "handS");
+  }
+  if (finished) {
+    renderRevealedHand("E", "handE");
+    renderRevealedHand("W", "handW");
+  } else {
+    renderHiddenHand("E", "handE");
+    renderHiddenHand("W", "handW");
+  }
+  renderTrick(overrideTrickPlays);
+  renderStatus();
+  // On a phone the table is unreadable once all four hands are face up, so the
+  // stylesheet stacks them - it needs to know the hand is over.
+  const table = document.querySelector(".table");
+  if (table) table.classList.toggle("table--revealed", !!finished);
+  if (finished) { renderResult(); renderPostHandFeedback(); scheduleNextDeal(); }
+  // Live per-move commentary during play is intentionally NOT done - Itzik the teacher
+  // found it producing wrong/confusing statements (e.g. flagging a forced
+  // play as if it were a choice not to finesse). Teaching during play
+  // happens ONLY in the two planning-dialogue screens (renderPlanningStep1/2,
+  // before play starts) - once play begins, the student panel stays on
+  // whatever step 2 left showing UNTIL the hand ends, at which point
+  // renderPostHandFeedback (below) replaces it with a factual post-mortem -
+  // this is safe in a way live commentary wasn't, because by the time the
+  // hand is over there are no more forced-vs-chosen ambiguities left to
+  // misjudge; it only describes what is already fully known to have happened.
+}
+
+function renderResult() {
+  const result = contractResult(state);
+  const label = { made: "בוצע.", down: "ירד.", overtricks: "עודף." }[result];
+  const cls = { made: "result-made", down: "result-down", overtricks: "result-over" }[result];
+  const score = scoreResult(state);
+  const scoreText = score.side === "declarer" ? `+${score.points} לכרוז/דומם` : `+${score.points} להגנה`;
+  document.getElementById("resultBanner").innerHTML =
+    `<div class="result-banner ${cls}">${label}<div style="font-size:16px; margin-top:4px;" dir="rtl">${scoreText}</div></div>`;
+}
+
+// Post-hand technique summary - runs ONCE the hand is fully played out, using
+// complete knowledge of every trick (who led what, who held the King, who
+// actually won each trick). Reports only what objectively happened, not a
+// judgment of whether a given play was "correct given what was knowable at
+// the time" - that judgment call is exactly what made the old live version
+// (removed) misfire on forced plays. Scans completedTricks for the FIRST
+// trick that engages TESTED_SUIT from N/S's side and classifies it:
+// - honorSeat led the suit itself (from A or Q) before entrySeat ever led
+//   toward it: the finesse was never attempted - "cashed from the top".
+// - entrySeat led low toward honorSeat and honorSeat played the Ace: the
+//   finesse was available but not taken.
+// - entrySeat led low toward honorSeat and honorSeat played the Queen: the
+//   finesse WAS taken - trickWinner tells us objectively whether it worked
+//   (irrelevant whether the defender before honorSeat ducked a king or
+//   simply didn't have it - either way the trick's actual winner is the
+//   ground truth, no need to reconstruct who "should" have won).
+function analyzeFinesseOutcome(state) {
+  const entrySeat = partnerOf(HONOR_SEAT);
+  // The King might not appear in the decisive trick itself (e.g. a successful
+  // finesse means the defender holding it never got a chance to play it in
+  // that trick - it's still in their hand, played on a later round of the
+  // suit) - so find it across every trick played, not just the decisive one.
+  const kingPlay = state.completedTricks
+    .flatMap((t) => t.plays)
+    .find((p) => p.card.suit === TESTED_SUIT && p.card.rank === 13);
+  const kingHolder = kingPlay ? kingPlay.seat : null;
+  // Once honorSeat has released one of A/Q in ANY earlier trick (forced to
+  // follow suit or discard elsewhere - e.g. a defender led the suit first and
+  // honorSeat had already used up its 2 low cards on prior rounds), a later
+  // A/Q play from honorSeat isn't a real finesse decision anymore - only one
+  // of the two honors is even left in hand by then, so whichever one gets
+  // played is forced, not chosen. Track that so a forced release doesn't get
+  // misread as "declined the finesse" or credited as "took the finesse".
+  let honorAlreadyReleased = false;
+  // How many non-TESTED_SUIT cards honorSeat started with, versus how many
+  // it has already played so far - if it's run out of every other suit, a
+  // lead into TESTED_SUIT isn't a choice at all (there's no entrySeat lead
+  // to receive anymore - the finesse mechanism was never actually
+  // reachable). Without this, a real student who happens to end up void
+  // everywhere else gets told they "didn't try the finesse" for a
+  // situation they had no way to avoid (caught headless, Itzik the teacher, 2026-08-07).
+  const honorSeatNonTestedTotal = dealSnapshot[HONOR_SEAT].filter((c) => c.suit !== TESTED_SUIT).length;
+  let honorSeatNonTestedPlayed = 0;
+  for (const trick of state.completedTricks) {
+    const honorPlay = trick.plays.find(
+      (p) => p.seat === HONOR_SEAT && p.card.suit === TESTED_SUIT && (p.card.rank === 14 || p.card.rank === 12)
+    );
+    if (trick.plays.length === 0 || trick.plays[0].card.suit !== TESTED_SUIT) {
+      if (honorPlay) honorAlreadyReleased = true; // a discard of A/Q on an unrelated trick - rare, but still uses it up
+      const honorSeatOwnPlay = trick.plays.find((p) => p.seat === HONOR_SEAT);
+      if (honorSeatOwnPlay && honorSeatOwnPlay.card.suit !== TESTED_SUIT) honorSeatNonTestedPlayed++;
+      continue;
+    }
+    if (trick.leader === HONOR_SEAT) {
+      const led = trick.plays[0].card;
+      if (led.rank === 14 || led.rank === 12) {
+        if (honorSeatNonTestedPlayed >= honorSeatNonTestedTotal) {
+          return { attempted: null, reason: "forced-to-lead-suit", kingHolder };
+        }
+        return { attempted: false, reason: "cashed-from-top", kingHolder };
+      }
+      continue; // honorSeat led a low card first - no A/Q decision yet, keep scanning
+    }
+    if (trick.leader === entrySeat && honorPlay) {
+      if (honorAlreadyReleased) {
+        return { attempted: null, reason: "forced-honor", finesseWorked: isDeclarerSide(trickWinner(trick)), kingHolder };
+      }
+      // Was the King already played by a defender EARLIER in this SAME
+      // trick (2nd hand rose with it instead of ducking)? If so there is no
+      // real finesse guess left - the King is already known and gone, and
+      // rising with the Ace is the objectively correct (and only winning)
+      // response, not a "rose with the Ace instead of finessing" mistake.
+      // Missing this let a defensive slip get mislabeled as a student
+      // mistake - caught via headless verification (Itzik the teacher, 2026-08-07),
+      // already handled the same way in queen-jack-ten-finesse.html and
+      // queen-ace-finesse.html, just never backported here.
+      const honorIndex = trick.plays.indexOf(honorPlay);
+      const kingAlreadyShown = trick.plays.slice(0, honorIndex)
+        .some((p) => p.card.suit === TESTED_SUIT && p.card.rank === 13);
+      if (kingAlreadyShown) {
+        const captured = honorPlay.card.rank === 14;
+        return {
+          attempted: null,
+          reason: captured ? "captured-dropped-king" : "missed-capture",
+          finesseWorked: null,
+          kingHolder,
+        };
+      }
+      const finessed = honorPlay.card.rank === 12;
+      return {
+        attempted: finessed,
+        reason: finessed ? "finessed" : "rose-with-ace",
+        finesseWorked: finessed ? isDeclarerSide(trickWinner(trick)) : null,
+        kingHolder,
+      };
+    }
+    if (honorPlay) honorAlreadyReleased = true; // a defender led the suit and forced honorSeat's hand before entrySeat ever did
+  }
+  return { attempted: false, reason: "never-engaged", kingHolder };
+}
+
+// Simplified per Itzik the teacher, 2026-08-08: technique and result no longer cross-
+// reference each other (no more "שים לב, זו לא הייתה הטכניקה הנכונה" next
+// to a made contract - a made contract is just celebrated, period). Only
+// three technique buckets: attempted and worked, attempted and didn't work,
+// or genuinely didn't attempt. Forced/no-real-choice situations
+// (king/queen already fell, forced to lead the suit itself, etc.) get no
+// technique commentary at all - there was no decision to grade.
+// ---------- progress ----------
+// Ten made contracts finish an exercise. Kept in the browser's own storage,
+// because the site is static: no login, no server, nothing leaves the machine.
+const PROGRESS_STORE = "bdp-progress";
+function recordProgress(made) {
+  try {
+    const all = JSON.parse(localStorage.getItem(PROGRESS_STORE) || "{}");
+    const key = (location.pathname.split("/").pop() || "").toLowerCase();
+    if (!key) return;
+    const row = all[key] || { made: [], played: [] };
+    const id = String(boardLabel(seed));
+    if (!row.played.includes(id)) row.played.push(id);
+    if (made && !row.made.includes(id)) row.made.push(id);
+    all[key] = row;
+    localStorage.setItem(PROGRESS_STORE, JSON.stringify(all));
+  } catch (e) {
+    // private browsing, or a file:// origin that refuses storage
+  }
+}
+
+function renderPostHandFeedback() {
+  const outcome = analyzeFinesseOutcome(state);
+  const { declarerSide } = tricksWon(state);
+  const tricksNeeded = 6 + CONTRACT.level;
+  const madeContract = declarerSide >= tricksNeeded;
+  recordProgress(madeContract);
+
+  let technique = "";
+  if (outcome.reason === "finessed" && outcome.finesseWorked) {
+    technique = "עשית עקיפה. העקיפה הצליחה.";
+  } else if (outcome.reason === "finessed" && !outcome.finesseWorked) {
+    technique = "עשית עקיפה. הפעם המלך ישב בצד הלא נכון.";
+  } else if (outcome.attempted === false) {
+    technique = "לא ניסית לעקוף.";
+  }
+  // A finesse that lost IS correct play - the student took the only chance the
+  // hand offered and it was off. Saying just "החוזה נפל" reads as a verdict on
+  // the player. (Itzik the teacher, 2026-08-11.)
+  const playedCorrectly = outcome.reason === "finessed";
+  // A finesse that WON and a contract that still failed is a trick lost
+  // elsewhere, not a card sitting badly - saying otherwise is simply false.
+  const failedText = outcome.finesseWorked
+    ? "טכניקה נכונה. אבדה לך לקיחה במקום אחר."
+    : "העקיפה היא הימור של <bdi>50</bdi> אחוז, והפעם המלך ישב בצד הלא נכון. זה כל ההבדל.";
+  const resultText = madeContract
+    ? `<div>החוזה בוצע.</div><div style="margin-top:6px;">ביצוע יפה לקחת <bdi>${declarerSide}</bdi> לקיחות.</div>`
+    : playedCorrectly
+      ? `<div>החוזה נפל, אבל שיחקת נכון.</div><div style="margin-top:6px;">${failedText}</div>`
+      : "<div>החוזה נפל.</div>";
+
+  // The "you threw a winner" line was removed on 2026-08-20 at Itzik the teacher's
+  // instruction, after it told him he had discarded a master card that was not
+  // one. It only asked whether the defenders still held a higher card of the
+  // suit, and never whether the card could be REACHED - with no entry to the
+  // hand holding it, it is not a trick, and the message is simply false.
+  const wastedText = "";
+
+  document.getElementById("studentPanelBody").innerHTML = `
+    <div class="student-panel-summary">סיכום היד</div>
+    ${technique ? `<div>${technique}</div>` : ""}
+    <div style="margin-top:6px;">${resultText}</div>
+    ${wastedText}
+    ${!madeContract && technique === "לא ניסית לעקוף." ? `<div style="margin-top:6px;">המשך ללמוד ולתרגל. מבטיח שתצליח.</div>` : ""}
+  `;
+}
+
+// Pre-play planning dialogue (Itzik the teacher's "count safe tricks, then plan, THEN
+// play" method) - runs inside the student-panel, right after the opening
+// lead is shown and before the table unlocks. Two steps: (1) the student
+// guesses how many safe tricks N+S have, checked against countSafeTricks;
+// (2) a fixed reminder to plan where the REST of the tricks come from
+// before touching a card, with the finesse-odds pep talk. Only after step 2
+// does play unlock.
+// ---------- step 1: which suit ----------
+// Deliberately before everything else. Reading a hand starts with finding the
+// suit the contract turns on, and a panel that names it has already done the
+// work. One wrong answer is told only to think again - naming the suit then
+// would end the exercise - and a second gets the answer, because a student stuck
+// at the first step cannot practise the rest.
+const SUIT_QUESTION_ORDER = ["S", "H", "D", "C"];
+const SUIT_CORRECT_PHRASES = ["נכון.", "בדיוק.", "יפה."];
+let suitRevealed = false;
+
+function suitQuestionAnswer() {
+  return TESTED_SUIT;
+}
+
+// A suit is a finesse candidate if NS holds a card above some missing card
+// and a card below it - a real tenace, not just any suit with a gap.
+function hasFinesseTenace(hands, suit) {
+  const mine = [...hands.N, ...hands.S].filter((c) => c.suit === suit).map((c) => c.rank).sort((a, b) => b - a);
+  const missing = [];
+  for (let r = 14; r >= 2; r--) if (!mine.includes(r)) missing.push(r);
+  for (const m of missing) {
+    if (mine.some((r) => r > m) && mine.some((r) => r < m)) return true;
+  }
+  return false;
+}
+
+// Among the suits with a genuine finesse, the one(s) with the most combined
+// NS cards. We can never know in advance which finesse succeeds - more
+// cards means better odds, nothing more is claimed (Itzik, 2026-09-04).
+function bestFinesseSuitsByLength(hands) {
+  const candidates = SUITS.filter((s) => hasFinesseTenace(hands, s));
+  const pool = candidates.length ? candidates : SUITS;
+  const lengths = {};
+  for (const s of pool) lengths[s] = hands.N.filter((c) => c.suit === s).length + hands.S.filter((c) => c.suit === s).length;
+  const max = Math.max.apply(null, pool.map((s) => lengths[s]));
+  return pool.filter((s) => lengths[s] === max);
+}
+
+function isAcceptedFinesseSuit(suit) {
+  return bestFinesseSuitsByLength(dealtHands).indexOf(suit) !== -1;
+}
+
+// Built from the deal rather than written per module, for the exercises whose
+// brief never named a suit. It states the two facts that make a suit the one to
+// play: the high cards you hold in it, and the ones the defenders hold.
+function suitQuestionReason(suit) {
+  suit = suit || suitQuestionAnswer();
+  const HONOUR = { 14: "A", 13: "K", 12: "Q", 11: "J", 10: "T" };
+  const held = [];
+  const missing = [];
+  for (const rank of [14, 13, 12, 11, 10]) {
+    const mine = state.hands.N.some((c) => c.suit === suit && c.rank === rank) ||
+                 state.hands.S.some((c) => c.suit === suit && c.rank === rank) ||
+                 (dealtHands && (dealtHands.N.some((c) => c.suit === suit && c.rank === rank) ||
+                                 dealtHands.S.some((c) => c.suit === suit && c.rank === rank)));
+    (mine ? held : missing).push(HONOUR[rank]);
+  }
+  const heldText = held.length
+    ? `אצלך ואצל הדומם: <bdi>${held.join("-")}</bdi>`
+    : "אין אצלך קלפים גבוהים בסדרה";
+  const missingText = missing.length
+    ? `אצל היריבים: <bdi>${missing.join("-")}</bdi>`
+    : "כל הקלפים הגבוהים אצלך";
+  return `בסדרת <bdi>${SUIT_SYMBOL[suit]}</bdi> - ${heldText}, ${missingText}. משם צריכות לבוא הלקיחות שחסרות לחוזה.`;
+}
+
+function renderSuitQuestion() {
+  const body = document.getElementById("studentPanelBody");
+  const buttons = SUIT_QUESTION_ORDER.map((s) =>
+    `<button type="button" class="action suit-choice" data-suit="${s}" style="padding:4px 12px; font-size:17px; margin:0;">${SUIT_SYMBOL[s]}</button>`
+  ).join("");
+  body.innerHTML = `
+    <div class="student-panel-summary">שלב <bdi>1</bdi></div>
+    <div>באיזו סדרה נעקוף?</div>
+    <div style="margin-top:8px; display:flex; gap:6px;" dir="rtl">${buttons}</div>
+    <div id="suitFeedback" style="margin-top:6px;"></div>
+  `;
+  let wrongAttempts = 0;
+  const finish = (html) => {
+    document.getElementById("suitFeedback").innerHTML =
+      html + `<div style="margin-top:6px;"><button type="button" id="btnSuitContinue" class="action" style="padding:5px 10px; font-size:13px;">המשך</button></div>`;
+    for (const b of body.querySelectorAll(".suit-choice")) b.disabled = true;
+    suitRevealed = true;
+    renderBrief();
+    document.getElementById("btnSuitContinue").addEventListener("click", renderPlanningStep1);
+  };
+  for (const btn of body.querySelectorAll(".suit-choice")) {
+    btn.addEventListener("click", () => {
+      if (isAcceptedFinesseSuit(btn.dataset.suit)) {
+        finish(`${SUIT_CORRECT_PHRASES[Math.floor(Math.random() * SUIT_CORRECT_PHRASES.length)]}<div style="margin-top:6px;">${suitQuestionReason(btn.dataset.suit)}</div>`);
+        return;
+      }
+      wrongAttempts++;
+      if (wrongAttempts === 1) {
+        document.getElementById("suitFeedback").innerHTML = "חשוב שנית.";
+        return;
+      }
+      finish(`הסדרה היא <bdi>${SUIT_SYMBOL[suitQuestionAnswer()]}</bdi>.<div style="margin-top:6px;">${suitQuestionReason()}</div>`);
+    });
+  }
+}
+
+function renderPlanningStep1() {
+  const body = document.getElementById("studentPanelBody");
+  body.innerHTML = `
+    <div class="student-panel-summary">שלב <bdi>2</bdi></div>
+    <div>ספור כמה לקיחות בטוחות יש ביד ובדומם. לקיחה בטוחה היא לקיחה שאפשר לקחת בלי להעביר את היד ליריב.</div>
+    <div style="margin-top:8px; display:flex; gap:6px; align-items:center;" dir="rtl">
+      <input type="number" id="safeTricksInput" min="0" max="13" style="width:56px; padding:4px; border-radius:5px; border:1px solid var(--panel-border); font-size:14px;" />
+      <button type="button" id="btnSafeTricksSubmit" class="action" style="padding:5px 10px; font-size:13px;">בדוק</button>
+    </div>
+    <div id="safeTricksFeedback" style="margin-top:6px;"></div>
+  `;
+  document.getElementById("btnSafeTricksSubmit").addEventListener("click", () => {
+    const val = parseInt(document.getElementById("safeTricksInput").value, 10);
+    if (!Number.isFinite(val)) return;
+    const feedbackEl = document.getElementById("safeTricksFeedback");
+
+    if (val === safeTricksAnswer) {
+      const msg = randomVariant(SAFE_TRICKS_CORRECT_VARIANTS);
+      feedbackEl.innerHTML =
+        `${msg}<div style="margin-top:6px;"><button type="button" id="btnSafeTricksContinue" class="action" style="padding:5px 10px; font-size:13px;">המשך</button></div>`;
+      document.getElementById("btnSafeTricksSubmit").disabled = true;
+      document.getElementById("btnSafeTricksContinue").addEventListener("click", renderPlanningStep2);
+      return;
+    }
+
+    safeTricksAttempts++;
+    if (safeTricksAttempts === 1) {
+      // First wrong guess: point back to the input, no answer yet - the
+      // input/button stay live so the student can just try again.
+      feedbackEl.textContent = randomVariant(SAFE_TRICKS_RETRY_VARIANTS);
+      return;
+    }
+
+    // Second wrong guess in a row: reveal the answer, but not as a bare
+    // number - count it together suit by suit (Itzik the teacher, 2026-08-07), same walk
+    // as countSafeTricks itself.
+    const bySuit = countSafeTricksBySuit(state.hands.N, state.hands.S);
+    const breakdownRows = SUITS
+      .filter((s) => bySuit[s] > 0)
+      .map((s) => `
+      <div dir="rtl">
+        <bdi>${bySuit[s]}</bdi> ב-<span class="suit-icon ${suitColorClass(s)}">${SUIT_SYMBOL[s]}</span>
+      </div>`).join("");
+    const sumExpression = SUITS.filter((s) => bySuit[s] > 0).map((s) => bySuit[s]).join(" + ");
+    feedbackEl.innerHTML = `
+      <div>טעית שוב - בוא נספור ביחד, סדרה-סדרה:</div>
+      <div style="margin-top:6px;">${breakdownRows}</div>
+      <div style="margin-top:6px;">סה"כ: <bdi>${sumExpression} = ${safeTricksAnswer}</bdi> לקיחות בטוחות.</div>
+      <div style="margin-top:6px;"><button type="button" id="btnSafeTricksContinue" class="action" style="padding:5px 10px; font-size:13px;">המשך</button></div>
+    `;
+    document.getElementById("btnSafeTricksSubmit").disabled = true;
+    document.getElementById("btnSafeTricksContinue").addEventListener("click", renderPlanningStep2);
+  });
+}
+
+function renderPlanningStep2() {
+  const body = document.getElementById("studentPanelBody");
+  body.innerHTML = `
+    <div class="student-panel-summary">שלב <bdi>3</bdi></div>
+    <div>מהיכן יבואו הלקיחות החסרות.<br>אל תמהר לקחת את הבטוחות. קודם פתור את הבעיה, אחר כך קח את השאר.</div>
+    <div style="margin-top:6px;">לעקיפה יש <bdi>50</bdi> אחוז להצליח. בלי לנסות, אפס.</div>
+    <div style="margin-top:8px; text-align:center;">
+      <button type="button" id="btnStartPlaying" class="action" style="padding:5px 10px; font-size:13px;">התחל לשחק, בהצלחה</button>
+    </div>
+  `;
+  document.getElementById("btnStartPlaying").addEventListener("click", () => {
+    planningPhase = false;
+    render();
+  });
+}
+
+// Pause ONLY on the last (4th) card of a completed trick - not after every
+// single card, that's redundant since the student is already stopped
+// waiting for their own next input anyway. Without this, the trick used to
+// clear to empty in the same synchronous step that completed it, so the 4th
+// card played was essentially never visible. Apply the move immediately
+// (card leaves the hand, score updates), but if it completed a trick,
+// render the full 4-card trick and WAIT FOR A CLICK (not a timer, Itzik the teacher
+// asked for this specifically) before clearing to the next one. Input on
+// the student's own hand is locked during the pause (trickPausePending) so
+// a click can't race ahead of what's on screen.
+let trickPausePending = false;
+
+// Undo (Itzik the teacher, 2026-08-06: "שאם טעיתי יהיה כפתור שיתן לי לחזור") - a stack of
+// full snapshots taken right before each card is played. playCard never
+// mutates the old state (every field is replaced with a new object/array),
+// so the pushed reference stays valid forever - no deep clone needed.
+let stateHistory = [];
+let pendingSystemTimeout = null;
+
+function playCardWithPause(seat, card) {
+  stateHistory.push({ state, trickPausePending, finished });
+  const willCompleteTrick = state.currentTrick.plays.length === 3;
+  const completedPlays = willCompleteTrick ? [...state.currentTrick.plays, { seat, card }] : null;
+  state = playCard(state, seat, card);
+  if (willCompleteTrick) {
+    trickPausePending = true;
+    render(completedPlays);
+    speculateDefence();
+  } else {
+    afterMove();
+  }
+}
+
+function advancePastCompletedTrick() {
+  if (!trickPausePending) return;
+  trickPausePending = false;
+  afterMove();
+}
+
+function onPlayerCard(seat, card) {
+  if (finished || trickPausePending || planningPhase || state.turn !== seat) return;
+  playCardWithPause(seat, card);
+}
+
+function afterMove() {
+  if (isHandComplete(state)) {
+    finished = true;
+    render();
+    return;
+  }
+  render();
+  scheduleSystemPlayIfNeeded();
+  speculateDefence();
+}
+
+function undoLastMove() {
+  if (pendingSystemTimeout !== null) { clearTimeout(pendingSystemTimeout); pendingSystemTimeout = null; }
+  // A defender's card goes through playCardWithPause as well, so ONE pop can
+  // land on the defence's turn - and nothing there is scheduled to play it, so
+  // the hand froze and the only way on was a new deal. What the student asked
+  // to take back is his own card, and the defence's answer to it comes with it,
+  // so keep popping until it is his turn again.
+  let prev = stateHistory.pop();
+  if (!prev) return;
+  while ((prev.state.turn === "E" || prev.state.turn === "W") && stateHistory.length > 0) {
+    prev = stateHistory.pop();
+  }
+  state = prev.state;
+  trickPausePending = prev.trickPausePending;
+  finished = prev.finished;
+  render();
+  // Only if the history ran out on a defender's turn - then the defence plays
+  // on rather than leaving the student with nothing to click.
+  if (state.turn === "E" || state.turn === "W") scheduleSystemPlayIfNeeded();
+  // The cache was filled for the position the student left, not for the one he
+  // came back to, so without this his next card waits about a second for an
+  // answer that is normally ready before he asks.
+  speculateDefence();
+}
+
+function scheduleSystemPlayIfNeeded() {
+  if (finished || planningPhase) return;
+  if (state.turn !== "E" && state.turn !== "W") return;
+  const key = defencePositionKey(state, state.turn);
+  pendingSystemTimeout = setTimeout(() => {
+    pendingSystemTimeout = null;
+    // Already worked out while the student was thinking, in almost every case.
+    // If it is not - the student answered faster than the worker, or there is
+    // no Worker at all - it is worked out here, exactly as it always was.
+    const card = defenceCache.get(key) || positionalDefenceCard(state, state.turn);
+    playCardWithPause(state.turn, card);
+    speculateDefence();
+  }, 450);
+}
+
+
+// ---------- manual layout controls (drag to reposition, buttons to resize) ----------
+// Itzik the teacher asked to be able to fine-tune the N/S panel position/size himself
+// instead of going back and forth over chat for every pixel nudge. Purely a
+// display preference - has nothing to do with the deal/game state, so it's
+// stored separately in localStorage and survives both new deals and reloads.
+const LAYOUT_KEY = "finesseHandLayoutV2"; // v2: added west/east
+const SCALE_MIN = 0.6, SCALE_MAX = 1.8, SCALE_STEP = 0.08;
+const SEAT_EL_ID = { north: "seatNorth", south: "seatSouth", west: "seatWest", east: "seatEast" };
+
+function defaultLayout() {
+  return { north: { dx: 0, dy: 0, scale: 1 }, south: { dx: 0, dy: 0, scale: 1 }, west: { dx: 0, dy: 0, scale: 1 }, east: { dx: 0, dy: 0, scale: 1 } };
+}
+
+function loadLayout() {
+  const defaults = defaultLayout();
+  try {
+    const raw = localStorage.getItem(LAYOUT_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      for (const key of Object.keys(defaults)) if (saved[key]) defaults[key] = saved[key];
+    }
+  } catch (e) { /* localStorage unavailable or corrupt - fall back to defaults */ }
+  return defaults;
+}
+
+let handLayout = loadLayout();
+
+function saveLayout() {
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(handLayout)); } catch (e) { /* ignore */ }
+}
+
+function applyLayout(seatKey) {
+  const el = document.getElementById(SEAT_EL_ID[seatKey]);
+  const l = handLayout[seatKey];
+  el.style.setProperty("--dx", l.dx + "px");
+  el.style.setProperty("--dy", l.dy + "px");
+  el.style.setProperty("--scale", String(l.scale));
+}
+
+for (const seatKey of ["north", "south", "west", "east"]) applyLayout(seatKey);
+
+// ---------- "נתקעתי" report ----------
+// The modules are self-contained HTML files opened straight off disk - there is
+// no server to POST to, and an API key embedded here would be readable by every
+// student who opens the file. mailto: is the only route that sends real mail
+// without either. It hands the student's own mail client a fully composed
+// message; they press send.
+function stuckReportBody(note) {
+  const lines = [];
+  lines.push("תרגיל: " + document.title);
+  lines.push("מספר יד: " + boardLabel(seed));
+  lines.push("חוזה: " + CONTRACT.level + CONTRACT.strain + ", מכריז " + SEAT_NAME[CONTRACT.declarer]);
+  lines.push("הובלה: " + (openingLeadCard ? cardLabel(openingLeadCard) : "-"));
+  lines.push("");
+  lines.push("הידיים:");
+  // The deal AS DEALT; state.hands only holds what is left, and at the end of a
+  // hand that is nothing at all - the report reached Itzik the teacher with four empty
+  // hands. The page that this was written on calls it dealHandsSnapshot and
+  // every other page calls it dealtHands, so both names are tried.
+  const dealt = (typeof dealHandsSnapshot !== "undefined" && dealHandsSnapshot) ? dealHandsSnapshot
+    : (typeof dealtHands !== "undefined" && dealtHands) ? dealtHands
+    : (state ? state.hands : null);
+  if (dealt) {
+    for (const seat of ["N", "E", "S", "W"]) {
+      const bySuit = SUITS.map((su) => {
+        const cards = dealt[seat].filter((c) => c.suit === su)
+          .sort((a, b) => b.rank - a.rank).map((c) => RANK_LABEL[c.rank] || c.rank).join("");
+        return SUIT_SYMBOL[su] + (cards || "-");
+      }).join("  ");
+      lines.push("  " + SEAT_NAME[seat] + ": " + bySuit);
+    }
+  }
+  if (state && state.completedTricks.length > 0) {
+    lines.push("");
+    lines.push("לקיחות ששוחקו (" + state.completedTricks.length + "):");
+    state.completedTricks.forEach((trick, i) => {
+      lines.push("  " + (i + 1) + ". " + trick.plays.map((p) => p.seat + cardLabel(p.card)).join(" ") +
+        "  -> " + trickWinner(trick));
+    });
+  }
+  if (note && note.trim()) {
+    lines.push("");
+    lines.push("מה לא היה ברור:");
+    lines.push(note.trim());
+  }
+  return lines.join("\n");
+}
+
+// Two routes out, because neither works for everyone: mailto: needs a mail
+// client configured on the machine, and the Gmail compose URL needs the student
+// to be signed in to Gmail in this browser. The report text is on the clipboard
+// either way, so a student with neither can still paste it anywhere.
+const REPORT_TO = "bridgeil888@gmail.com";
+
+function closeStuckModal() {
+  const m = document.getElementById("stuckModal");
+  if (m) m.remove();
+}
+
+function openStuckReport() {
+  if (!state) { alert("התחל יד קודם"); return; }
+  closeStuckModal();
+  const overlay = document.createElement("div");
+  overlay.id = "stuckModal";
+  overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:9999;";
+  overlay.innerHTML = `
+    <div dir="rtl" style="background:var(--panel-bg,#f5f5f0); color:var(--text,#222); border-radius:10px; padding:16px; width:min(440px,92vw); box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+      <div style="font-weight:bold; font-size:16px; margin-bottom:4px;">נתקעת? שלח דיווח למורה</div>
+      <div style="font-size:13px; opacity:0.8; margin-bottom:8px;">היד, מספר היד והלקיחות ששיחקת יישלחו אוטומטית. אפשר להוסיף מה לא היה ברור:</div>
+      <textarea id="stuckNote" dir="auto" rows="3" style="width:100%; box-sizing:border-box; padding:6px; border-radius:6px; border:1px solid var(--panel-border,#bbb); font-size:14px;" placeholder="למשל: לא הבנתי למה לזרוק את האס"></textarea>
+      <div style="display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;">
+        <button type="button" id="stuckGmail" class="action" style="flex:1; min-width:120px; padding:7px;">שלח דרך <bdi>Gmail</bdi></button>
+        <button type="button" id="stuckMailto" class="action" style="flex:1; min-width:120px; padding:7px;">תוכנת המייל</button>
+        <button type="button" id="stuckCancel" class="action" style="flex:0 0 auto; padding:7px 12px;">ביטול</button>
+      </div>
+      <div id="stuckHint" style="font-size:12px; opacity:0.75; margin-top:8px;"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeStuckModal(); });
+  document.getElementById("stuckCancel").addEventListener("click", closeStuckModal);
+
+  const subject = "נתקעתי - " + document.title;
+  const compose = (route) => {
+    const body = stuckReportBody(document.getElementById("stuckNote").value);
+    if (navigator.clipboard) navigator.clipboard.writeText(body).catch(() => {});
+    if (route === "gmail") {
+      // Gmail's own compose window - no mail client needed, works wherever the
+      // student is already signed in. Opened in a new tab so the hand stays put.
+      window.open("https://mail.google.com/mail/?view=cm&fs=1&to=" + encodeURIComponent(REPORT_TO) +
+                  "&su=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body), "_blank");
+      document.getElementById("stuckHint").innerHTML = "נפתח חלון <bdi>Gmail</bdi>. אם הוא לא נפתח, הטקסט כבר הועתק - הדבק אותו במייל.";
+      return;
+    }
+    // Windows drops mailto: URLs past roughly 2000 characters and a full hand
+    // encodes past that, so the trick list is trimmed and the clipboard carries
+    // the complete copy.
+    const build = (t) => "mailto:" + REPORT_TO + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(t);
+    let text = body;
+    if (build(text).length > 1900) {
+      const cut = text.indexOf("לקיחות ששוחקו");
+      if (cut > 0) {
+        const noteAt = text.indexOf("מה לא היה ברור:");
+        const tail = noteAt > cut ? text.slice(noteAt) : "";
+        text = text.slice(0, cut) + "(רשימת הלקיחות הועתקה ללוח - הדבק אותה כאן)" + "\n\n" + tail;
+      }
+    }
+    window.location.href = build(text);
+    document.getElementById("stuckHint").innerHTML = "אם לא נפתחה תוכנת מייל, נסה את הכפתור של <bdi>Gmail</bdi> - הטקסט כבר הועתק.";
+  };
+  document.getElementById("stuckGmail").addEventListener("click", () => compose("gmail"));
+  document.getElementById("stuckMailto").addEventListener("click", () => compose("mailto"));
+}
+
+document.getElementById("btnStuck").addEventListener("click", openStuckReport);
+
+document.getElementById("btnNewDeal").addEventListener("click", () => {
+  newDealWithNotice(() => startDeal(nextBankSeed()));
+});
+document.getElementById("btnSameDeal").addEventListener("click", () => {
+  startDeal(seed);
+});
+document.getElementById("btnUndo").addEventListener("click", undoLastMove);
+document.getElementById("btnLoadSeed").addEventListener("click", () => {
+  const val = parseInt(document.getElementById("seedInput").value, 10);
+  // The boards are numbered from one. Zero and below used to load a board and
+  // then show it as "0000000" or under another number, and the board number is
+  // what a student quotes in a "נתקעתי" report - so a number that is not on the
+  // list does nothing, exactly like a letter typed into the box.
+  if (!Number.isFinite(val) || val < 1) return;
+  newDealWithNotice(() => startDeal(val));
+});
+document.body.addEventListener("click", advancePastCompletedTrick);
+
+// ?seed=12345 in the URL loads that exact deal directly - lets you send
+// yourself (or a student) a link straight to a specific hand, e.g. one that
+// failed in a headless test run and is worth trying by hand.
+const urlSeed = parseInt(new URLSearchParams(window.location.search).get("seed"), 10);
+startDeal(Number.isFinite(urlSeed) ? urlSeed : seed);
+
+// ---------- ?reveal=1 / ?calibrate=1: jump straight to the revealed view ----------
+// So Itzik the teacher can look at (or screenshot) all four hands without playing
+// thirteen tricks first. ?reveal alone shows just the hand; ?calibrate adds
+// the +/- panel below. Nothing here is meant to reach a student.
+const _revealParams = new URLSearchParams(window.location.search);
+if (_revealParams.has("reveal") || _revealParams.has("calibrate")) {
+  renderRevealedHand("N", "handN");
+  renderRevealedHand("S", "handS");
+  renderRevealedHand("E", "handE");
+  renderRevealedHand("W", "handW");
+  document.querySelector(".table").classList.add("table--revealed");
+}
+
+// ---------- calibration mode for the revealed-hand mobile layout ----------
+// ?calibrate=1 only. See tools/stamp-revealed-calibration.mjs for why.
+if (_revealParams.has("calibrate")) {
+  const CAL_KEY = "revealedCalibrationV1";
+  const CAL_UNIT = { "--we-edge-gap": "px", "--we-strip": "px", "--we-card-w": "px", "--we-card-h": "px", "--table-extra-h": "cm", "--mid-row-fr": "" };
+  const CAL_STEP = { "--we-edge-gap": 2, "--we-strip": 5, "--we-card-w": 1, "--we-card-h": 1, "--table-extra-h": 0.1, "--mid-row-fr": 0.1 };
+  const CAL_LABEL = { "--we-edge-gap": "מרחק מהמסגרת", "--we-strip": "רוחב הרצועה", "--we-card-w": "רוחב קלף", "--we-card-h": "גובה קלף", "--table-extra-h": "תוספת גובה טבלה", "--mid-row-fr": "יחס שורה אמצעית" };
+  const CAL_DEFAULTS = { "--we-edge-gap": -34.5, "--we-strip": 165, "--we-card-w": 20, "--we-card-h": 36, "--table-extra-h": 1, "--mid-row-fr": 1.7 };
+  let calValues = { ...CAL_DEFAULTS };
+  try {
+    const saved = JSON.parse(localStorage.getItem(CAL_KEY));
+    if (saved) calValues = { ...CAL_DEFAULTS, ...saved };
+  } catch (err) { /* corrupt or absent, defaults stand */ }
+
+  const calPanel = document.createElement("div");
+  calPanel.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#111;color:#fff;font-size:13px;padding:8px;max-height:48vh;overflow:auto;direction:rtl;box-shadow:0 -4px 12px rgba(0,0,0,0.5);";
+  calPanel.innerHTML = Object.keys(CAL_DEFAULTS).map((k) => `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <span style="width:120px;flex:none;">${CAL_LABEL[k]}</span>
+      <button data-k="${k}" data-d="-1" style="width:34px;height:34px;font-size:18px;">-</button>
+      <span data-v="${k}" style="width:56px;text-align:center;flex:none;"></span>
+      <button data-k="${k}" data-d="1" style="width:34px;height:34px;font-size:18px;">+</button>
+    </div>`).join("")
+    + '<pre id="calReadout" style="background:#000;padding:6px;white-space:pre-wrap;word-break:break-all;font-size:11px;direction:ltr;text-align:left;"></pre>'
+    + '<button id="calReset" style="margin-top:4px;padding:6px 14px;">איפוס לברירת המחדל</button>';
+  document.body.appendChild(calPanel);
+  const calReadout = calPanel.querySelector("#calReadout");
+
+  function calApply() {
+    for (const k of Object.keys(calValues)) {
+      document.documentElement.style.setProperty(k, calValues[k] + CAL_UNIT[k]);
+      calPanel.querySelector(`span[data-v="${k}"]`).textContent = calValues[k] + CAL_UNIT[k];
+    }
+    localStorage.setItem(CAL_KEY, JSON.stringify(calValues));
+    calReadout.textContent = JSON.stringify(calValues, null, 1);
+  }
+
+  calPanel.addEventListener("click", (e) => {
+    const resetBtn = e.target.closest("#calReset");
+    if (resetBtn) { calValues = { ...CAL_DEFAULTS }; calApply(); return; }
+    const btn = e.target.closest("button[data-k]");
+    if (!btn) return;
+    const k = btn.dataset.k;
+    calValues[k] = Math.round((calValues[k] + Number(btn.dataset.d) * CAL_STEP[k]) * 100) / 100;
+    calApply();
+  });
+
+  calApply();
+}
+</script>
+</body>
+</html>
