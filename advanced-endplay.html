@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>משחק מסיים (Endplay)</title>
+<script defer src="analytics.js"></script>
+<style>
+:root { --bg:#f3f1ea; --felt:#1f6b45; --ink:#1c1c1c; --muted:#666; --card:#fff; --red:#c0272d; --accent:#2b5fab; --line:#d8d3c4; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:"Segoe UI",Arial,sans-serif; background:var(--bg); color:var(--ink); }
+header { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); }
+header h1 { font-size:18px; margin:0; }
+select, button { font:inherit; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+.bid, .num, .c { unicode-bidi:isolate; }
+.review { background:#fff3cd; color:#7a5b00; padding:6px 16px; border-bottom:1px solid #ecd98b; }
+main { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:16px; padding:16px; max-width:1150px; margin:auto; }
+@media (max-width:860px) { main { grid-template-columns:1fr; } }
+/* ---- the table: the same as every other exercise page (copied from finesse.html) ---- */
+.table { --gold:#c9a227; --tfelt:#16a34a; --panel-bg:#eee3fb; --panel-border:#c9aee8; --taccent:#2a5fa5; --text:#1a2a4a;
+  --card-bg:#e0cdf5; --card-border:#c9aee8; --card-face:#fff; --card-face-border:#a0b8d8; --ink-black:#1a2a4a; --ink-red:#b91c1c;
+  width:min(94vw, 88vh, 760px); aspect-ratio:1 / 1; margin:0 auto; direction:ltr; display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.7fr) minmax(0,1fr); grid-template-rows:1fr 1fr 1fr;
+  grid-template-areas:"tl north tr" "west center east" "bl south br"; gap:8px; align-items:center; justify-items:center;
+  background:var(--tfelt); border:4px solid var(--gold); border-radius:20px; padding:10px; box-sizing:border-box;
+  box-shadow:0 10px 34px rgba(0,0,0,0.45); }
+.seat-panel { background:var(--panel-bg); color:var(--text); border:1px solid var(--panel-border); border-radius:8px; padding:5px 8px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.35); min-width:116px; }
+.seat-panel.turn { outline:3px solid #ffd54a; }
+.seat-north { grid-area:north; box-sizing:border-box; justify-self:stretch; width:200%; margin-inline-start:-50%; position:relative; transform:translateY(calc(-50% + 0.5cm)); }
+.seat-south { grid-area:south; box-sizing:border-box; justify-self:stretch; width:200%; margin-inline-start:-50%; position:relative; transform:translateY(calc(50% - 0.5cm)); }
+.seat-west { grid-area:west; box-sizing:border-box; justify-self:stretch; width:200%; margin-inline-start:-50%; position:relative; transform:rotate(90deg); }
+.seat-east { grid-area:east; box-sizing:border-box; justify-self:stretch; width:200%; margin-inline-start:-50%; position:relative; transform:rotate(90deg); }
+.seat-title { font-weight:bold; text-align:center; margin-bottom:3px; font-size:14px; color:var(--taccent); }
+.hand-line { display:flex; flex-wrap:nowrap; align-items:center; gap:3px; width:100%; direction:ltr; }
+.rank-btn { display:flex; flex-direction:column; align-items:center; justify-content:space-between; flex:1 1 0; min-width:0; height:53px;
+  border-radius:6px; background:var(--card-face); color:var(--ink-black); font-weight:bold; border:1px solid var(--card-face-border);
+  cursor:pointer; padding:2px 2px; box-shadow:0 1px 2px rgba(0,0,0,0.2); font-family:inherit; }
+.rank-btn .card-rank { font-size:20px; line-height:1; }
+.rank-btn .card-suit { font-size:21px; line-height:1; }
+.rank-btn.red { color:var(--ink-red); }
+.rank-btn[disabled] { opacity:0.35; cursor:not-allowed; }
+.rank-btn.revealed { opacity:1; cursor:default; border-style:dashed; }
+.rank-btn.revealed[disabled] { opacity:0.92; }
+.rank-back { min-width:53px; height:53px; border-radius:6px; background:repeating-linear-gradient(45deg,#e0cdf5,#e0cdf5 3px,#cfb0ea 3px,#cfb0ea 6px); border:1px solid var(--card-border); }
+.hand-line .rank-back { flex:1 1 0; min-width:0; }
+.hand-count { display:none; }
+.compass { position:relative; z-index:1; grid-area:center; width:234px; height:234px; border:3px solid var(--taccent); background:var(--card-bg);
+  border-radius:14px; display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr;
+  grid-template-areas:".  tn ." "tw tc te" ".  ts ."; align-items:center; justify-items:center; }
+.trick-tn { grid-area:tn; } .trick-te { grid-area:te; } .trick-ts { grid-area:ts; } .trick-tw { grid-area:tw; }
+.compass-letter { font-size:39px; font-weight:bold; opacity:0.6; color:var(--text); }
+.card-btn { display:inline-flex; align-items:center; justify-content:center; min-width:42px; height:57px; border-radius:6px; background:var(--card-face);
+  color:var(--ink-black); font-size:22px; font-weight:bold; border:2px solid var(--taccent); padding:0 4px; box-shadow:0 2px 4px rgba(0,0,0,0.25); }
+.card-btn.red { color:var(--ink-red); }
+@media (max-width:700px) {
+  .table { grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); aspect-ratio:auto; }
+  .table .compass { width:172px; height:172px; }
+  .table .seat-west, .table .seat-east { width:auto; margin-inline-start:0; transform:none; min-width:0; padding:4px 2px; }
+  .table .seat-west .rank-back, .table .seat-east .rank-back { display:none; }
+  .table:not(.table--revealed) .seat-west .hand-line, .table:not(.table--revealed) .seat-east .hand-line { display:block; }
+  .table .seat-west .hand-count, .table .seat-east .hand-count { display:block; text-align:center; font-size:13px; font-weight:bold; color:var(--taccent); }
+  .table .seat-west .seat-title, .table .seat-east .seat-title { font-size:12px; margin-bottom:1px; }
+  .table .seat-north, .table .seat-south { width:100%; margin-inline-start:0; grid-column:1 / -1; transform:none; }
+  .table .seat-north .hand-line, .table .seat-south .hand-line { flex-wrap:wrap; justify-content:center; }
+  .table .seat-north .rank-btn, .table .seat-south .rank-btn { min-width:34px; flex:0 0 auto; }
+  .table.table--revealed { padding:8px; min-height:calc(94vw + 1cm); grid-template-rows:1fr 1.7fr 1fr; }
+  .table.table--revealed .seat-west { width:auto; margin-inline-start:-34.5px; min-width:0; justify-self:start; transform:rotate(90deg); }
+  .table.table--revealed .seat-east { width:auto; margin-inline-end:-34.5px; min-width:0; justify-self:end; transform:rotate(-90deg); }
+  .table.table--revealed .compass { display:none; }
+  .table.table--revealed .rank-btn { height:42px; }
+  .table.table--revealed .rank-btn .card-rank, .table.table--revealed .rank-btn .card-suit { font-size:16px; }
+  .table.table--revealed .seat-west .hand-line, .table.table--revealed .seat-east .hand-line { flex-wrap:wrap; width:165px; }
+  .table.table--revealed .seat-west .rank-btn, .table.table--revealed .seat-east .rank-btn { min-width:0; flex:0 0 auto; width:20px; height:36px; }
+}
+.card { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:30px; padding:0 4px;
+  background:var(--card); color:var(--ink); border-radius:5px; font-weight:600; font-size:16px; border:1px solid #bbb; user-select:none; }
+.card.red { color:var(--red); }
+.card.can { cursor:pointer; box-shadow:0 0 0 2px #ffd54a; }
+.card.can:hover { transform:translateY(-3px); }
+.card.dim { opacity:.35; }
+aside { display:flex; flex-direction:column; gap:12px; }
+.box { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px; }
+.box h2 { font-size:15px; margin:0 0 8px; }
+.auction { direction:ltr; display:grid; grid-template-columns:repeat(4,1fr); gap:2px 6px; text-align:center; font-size:15px; }
+.auction .h { font-weight:600; color:var(--muted); direction:rtl; }
+.score { font-size:15px; line-height:1.8; }
+#msg { min-height:24px; font-size:14px; color:var(--muted); }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; padding:16px; }
+.modal .box { max-width:460px; font-size:16px; line-height:1.7; }
+.hidden { display:none !important; }
+.expl { white-space:pre-wrap; line-height:1.7; font-size:15px; }
+table.play { width:100%; border-collapse:collapse; font-size:14px; margin-top:6px; }
+table.play th, table.play td { border:1px solid var(--line); padding:3px 4px; text-align:center; }
+table.play tr.ns { background:#e7f3ea; } table.play tr.ew { background:#fbe9e9; }
+table.play .card { min-width:26px; height:24px; font-size:14px; }
+.endArea { grid-column:1; display:flex; flex-direction:column; gap:16px; }
+.endArea .box { padding:18px; }
+.endArea h2 { font-size:19px; }
+.endArea .score, .endArea .expl { font-size:18px; line-height:1.8; }
+table.play { font-size:17px !important; }
+table.play .card { min-width:34px !important; height:30px !important; font-size:17px !important; }
+.hands-line { direction:ltr; font-family:Consolas,monospace; font-size:12px; word-break:break-all; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <a href="topics.html">כל הנושאים</a>
+  <h1>משחק מסיים <bdi>(Endplay)</bdi></h1>
+  <select id="pick"></select>
+  <button id="restart">שחק מחדש</button>
+  <button id="showDef">הצג ידי הגנה</button>
+  <button id="undo">אחורה</button>
+</header>
+<div id="reviewBar" class="review hidden">לוח לבדיקה. עוד לא אושר.</div>
+<main>
+  <div class="table" id="tableEl">
+    <div class="seat-north seat-panel" id="seatN"><div class="seat-title" dir="rtl" id="titleN"></div><div class="hand-line" id="handN"></div></div>
+    <div class="seat-west seat-panel" id="seatW"><div class="seat-title" dir="rtl" id="titleW"></div><div class="hand-line" id="handW"></div></div>
+    <div class="compass" id="trickArea"></div>
+    <div class="seat-east seat-panel" id="seatE"><div class="seat-title" dir="rtl" id="titleE"></div><div class="hand-line" id="handE"></div></div>
+    <div class="seat-south seat-panel" id="seatS"><div class="seat-title" dir="rtl" id="titleS"></div><div class="hand-line" id="handS"></div></div>
+  </div>
+  <aside>
+    <div class="box">
+      <h2 id="title"></h2>
+      <div class="score" id="info"></div>
+      <div id="msg"></div>
+    </div>
+    <div class="box"><h2>הכרזה</h2><div class="auction" id="auction"></div></div>
+  </aside>
+  <div class="endArea">
+    <div class="box hidden" id="endBox">
+      <h2>סוף הלוח</h2>
+      <div class="score" id="result"></div>
+      <p id="againRow" class="hidden"><button class="primary" id="again">נסה שוב</button></p>
+      <div id="solution">
+      <p class="expl" id="finesseNote">בתרגילים האלה <b>עקיפה לא מצליחה</b>. אם תנסה עקיפה, הקלף החסר יימצא תמיד אצל המגן הלא נכון.</p>
+      <div class="expl" id="expl"></div>
+      <p><button class="primary" id="replay">צפה בקו הנכון</button>
+         <button id="step" class="hidden">הקלף הבא</button></p>
+      <div class="hands-line" id="handsLine"></div>
+      </div>
+    </div>
+    <div class="box hidden" id="tricksBox"><h2>המשחק שלך</h2><div id="tricks"></div></div>
+  </div>
+</main>
+
+
+<script>var Module = {};</script>
+<script src="engine/dds/libdds.js"></script>
+<script>window.BOARDS = [{"id":"לוח 1","level":1,"ideas":[],"outcome":"fork","contract":"4S","declarer":"S","dealer":"S","auction":["1S","P","2S","P","4S","P","P","P"],"lead":"QC","hands":{"N":"T765.543.K32.A43","E":"42.J62.9876.9876","S":"KQJ98.AQ.A54.K52","W":"A3.KT987.QJT.QJT"},"throwIn":{"suit":"D","defender":"W"},"keySuit":"H","explanation":"יש לך שלושה מפסידים בטוחים: ה-♠A, ♣ שלישי ו-♦ שלישי. הרביעי, ה-♥K, תלוי בעקיפה שנכשלת.\nאל תעקוף ב-♥. תן למערב להוביל אותו אל ה-A Q שלך.\n\n1. זכה ב-♣ ומשוך שליטים. ההגנה לוקחת את ה-A.\n2. נקה את ה-♣: A, K, ואז ♣ שלישי. עכשיו אין ♣ לא בצפון ולא בדרום.\n3. שחק ♦A, ♦K ואז ♦ שלישי. מערב זוכה.\n4. למערב נשארו רק ♥, והוא חייב להוביל לתוך ה-A Q שלך.","approved":true,"line":["QC","AC","9C","2C","3D","9D","AD","QD","KS","AS","7S","2S","JD","KD","8D","5D","6S","4S","9S","3S","KC","JC","4C","8C","5C","TC","3C","7C","TD","2D","7D","4D","TH","5H","2H","QH","AH","9H","4H","6H","QS","8H","5S","6D","8S","7H","TS","6C","3H","JH","JS","KH"]},{"id":"לוח 2","level":1,"ideas":[],"outcome":"fork","contract":"3NT","declarer":"S","dealer":"S","auction":["1C","P","1H","P","2NT","P","3NT","P","P","P"],"lead":"QH","hands":{"N":"543.AK43.K32.542","E":"876.87.9854.JT98","S":"AQ2.652.A76.AKQ3","W":"KJT9.QJT9.QJT.76"},"throwIn":{"suit":"H","defender":"W"},"keySuit":"S","explanation":"יש לך 8 לקיחות בטוחות. התשיעית היא ה-♠Q, והיא תבוא רק אם מערב יוביל ♠ לתוך ה-A Q של דרום.\nהעקיפה ב-♠ נכשלת. אל תנסה אותה.\n\n1. זכה בהובלה ב-♥A.\n2. קח את ♣A ו-♣K, ושחק ♥ אל ה-K.\n3. שחק ♦K, ♦A ואז ♦ שלישי. מערב זוכה ב-♦10.\n4. מערב לוקח את ה-♥ שנשארו לו, ואז חייב להוביל ♠. ה-Q של דרום לוקחת.","approved":true,"line":["QH","AH","8H","2H","2C","JC","AC","7C","6H","JH","KH","7H","5C","TC","KC","6C","7D","QD","KD","5D","3D","4D","AD","JD","6D","TD","2D","9D","TH","4H","8S","5H","9H","3H","7S","2S","JS","5S","6S","QS","AS","KS","4S","8D","QC","TS","4C","9C","3C","9S","3S","8C"]},{"id":"לוח 3","level":1,"ideas":[],"outcome":"fork+ruffsluff","contract":"6H","declarer":"S","dealer":"S","auction":["2C","P","2D","P","2H","P","4H","P","4NT","P","5D","P","6H","P","P","P"],"lead":"QD","hands":{"N":"J43.T876.K32.K43","E":"Q652.532.876.765","S":"AK.AKQJ9.A54.AJ2","W":"T987.4.QJT9.QT98"},"throwIn":{"suit":"D","defender":"W"},"keySuit":"C","explanation":"יש לך 11 לקיחות בטוחות. הלקיחה ה-12 תלויה ב-♣Q.\n\n1. זכה ב-♦A ומשוך שליטים ב-A K Q.\n2. שחק ♠A ו-♠K.\n3. עבור לצפון ב-♦K, והובל ♠J. חתוך אותו בדרום. עכשיו אין ♠ לא בצפון ולא בדרום.\n4. שחק ♦ שלישי. מערב זוכה.\n5. אם מערב מוביל ♣, אתה לוקח שלוש לקיחות ב-♣, לא משנה איפה ה-Q.\n   אם הוא מוביל ♠ או ♦, חתוך בצפון ב-♥10 וזרוק את ה-♣2 מדרום.","approved":true,"line":["QD","KD","8D","5D","8H","3H","9H","4H","AD","JD","3D","7D","AS","TS","4S","2S","KS","9S","3S","6S","2C","TC","KC","7C","JS","QS","AH","8S","4D","TD","2D","6D","9C","4C","6C","JC","AC","QC","3C","5C","KH","7S","TH","5H","QH","8C","7H","2H","JH","9D","6H","5S"]},{"id":"לוח 4","level":1,"ideas":[],"outcome":"fork+ruffsluff","contract":"4S","declarer":"S","dealer":"S","auction":["1S","P","2S","P","3S","P","4S","P","P","P"],"lead":"7D","hands":{"N":"T762.AQ3.543.K43","E":"3.KJT9.QJT98.QJT","S":"KQJ98.654.AK.A52","W":"A54.872.762.9876"},"throwIn":{"suit":"C","defender":"E"},"keySuit":"H","explanation":"יש לך שלושה מפסידים בטוחים: ה-♠A, ה-♣ השלישי וה-♥ השלישי. הרביעי, ה-♥K, תלוי בעקיפה שנכשלת.\nאל תעקוף ב-♥. תן למזרח להוביל את הסדרה הזאת אל ה-A Q שבצפון.\n\n1. זכה ב-♦A, שחק ♦K ומשוך שליטים.\n2. נקה את ה-♦: חתוך בדרום את ה-♦ האחרון של צפון. עכשיו אין ♦ לא בצפון ולא בדרום.\n3. שחק ♣A ו-♣K, ואז ♣ שלישי. מזרח זוכה.\n4. אם מזרח מוביל ♥, ה-A Q שבצפון משחקים אחרונים ולוקחים שתי לקיחות.\n   אם הוא מוביל ♦, חתוך בצפון וזרוק ♥ מדרום.","approved":true,"line":["7D","5D","QD","AD","KS","AS","2S","3S","2D","4D","JD","KD","2C","9C","KC","QC","3D","TD","9S","6D","AC","8C","4C","JC","5C","7C","3C","TC","JH","6H","2H","QH","AH","KH","5H","8H","3H","TH","4H","7H","9H","8S","6C","7S","QS","5S","TS","9D","JS","4S","6S","8D"]},{"id":"לוח 5","level":1,"ideas":[],"outcome":"fork","contract":"3NT","declarer":"S","dealer":"S","auction":["2C","P","2D","P","2NT","P","3NT","P","P","P"],"lead":"QD","hands":{"N":"5432.532.54.KQ65","E":"T8.T9876.76.JT87","S":"AQ.AK4.AK32.A432","W":"KJ976.QJ.QJT98.9"},"throwIn":{"suit":"D","defender":"W"},"keySuit":"S","explanation":"יש לך 8 לקיחות בטוחות: ♠A, ♥A K, ♦A K ו-♣A K Q. התשיעית היא ה-♠Q, והיא תבוא רק אם מערב יוביל ♠.\nהעקיפה ב-♠ נכשלת.\n\n1. זכה ב-♦A.\n2. משוך ♥A K ו-♣A K Q. עכשיו אין למערב ♥ ו-♣.\n3. שחק ♦K ו-♦ נוסף. מערב זוכה.\n4. מערב לוקח את ה-♦ שלו, ואז חייב להוביל ♠ לתוך ה-A Q שלך.","approved":true,"line":["QD","5D","7D","AD","4C","9C","KC","8C","3H","TH","AH","QH","KH","JH","2H","9H","KD","JD","4D","6D","3C","7S","QC","JC","6C","TC","AC","6S","3D","TD","5S","8H","9D","4S","8S","2D","8D","3S","7H","2C","9S","2S","TS","QS","AS","KS","5H","7C","4H","JS","5C","6H"]},{"id":"לוח 6","level":3,"ideas":["הסוואה","סדרת הכנסה לא ברורה"],"outcome":"newsuit+ruffsluff","contract":"4S","declarer":"S","dealer":"S","auction":["2NT","P","3H","P","4S","P","P","P"],"lead":"KH","hands":{"N":"87654.J4.K54.765","E":"J.7652.8762.T984","S":"AKQT9.A3.AJ3.K32","W":"32.KQT98.QT9.AQJ"},"throwIn":{"suit":"C","defender":"W"},"keySuit":"D","explanation":"ב-♦ יש לך A J 3 מול K 5 4. אם תשחק את הסדרה בעצמך, תצטרך לנחש איפה ה-Q, והניחוש ייכשל.\nאם מערב יוביל ♦, תיקח שלוש לקיחות בלי לנחש.\n\n1. זכה ב-♥A ומשוך שליטים.\n2. מסור ♥. מערב זוכה, ועכשיו אין ♥ לא בדרום ולא בצפון.\n3. שחק ♣. מערב לוקח שתי לקיחות ב-♣, ובסוף הוא זוכה בלקיחה האחרונה של הסדרה.\n4. נשארו למערב רק ♥ ו-♦.\n   אם הוא מוביל ♥, אתה חותך ביד אחת וזורק ♦ מהשנייה.\n   אם הוא מוביל ♦, אתה משחק אחרון ולוקח שלוש לקיחות.","approved":true,"line":["KH","4H","2H","AH","AS","3S","8S","JS","3D","TD","KD","2D","7S","4C","KS","2S","3H","QH","JH","7H","AC","7C","TC","3C","QC","6C","9C","KC","2C","JC","5C","8C","9D","5D","8D","JD","AD","QD","4D","7D","QS","TH","6S","6H","TS","9H","5S","5H","9S","8H","4S","6D"]},{"id":"לוח 7","level":2,"ideas":["הסוואה"],"outcome":"fork+ruffsluff","contract":"4H","declarer":"S","dealer":"S","auction":["1H","P","2H","P","4H","P","P","P"],"lead":"JC","hands":{"N":"AQ5.876.765.7654","E":"K876.9542.QJT.KQ","S":"432.AKQJT.AK.A32","W":"JT9.3.98432.JT98"},"throwIn":{"suit":"C","defender":"E"},"keySuit":"S","explanation":"יש לך 9 לקיחות בטוחות. חמש בשליט, ♦A K, ♣A ו-♠A. העשירית היא ה-♠Q, והיא תבוא רק אם מזרח יוביל ♠.\nהעקיפה ב-♠ נכשלת. אל תנסה אותה.\n\n1. זכה בהובלה ב-♣A.\n2. שחק ♠ אל ה-A של צפון. אל תשחק את ה-Q.\n3. קח את ♦A ו-♦K, ומשוך את כל השליטים. השאר לעצמך שליט אחד.\n4. שחק ♣ קטן. מזרח זוכה ב-♣K.\n5. מזרח לוקח את ה-♠K שלו, ואז חייב להוביל שוב.\n   אם הוא מוביל ♠, ה-Q של צפון לוקחת.\n   אם הוא מוביל ♦, חתוך בשליט האחרון וזרוק מפסיד.","approved":true,"line":["JC","7C","KC","AC","AH","3H","8H","2H","4S","JS","AS","8S","7D","QD","AD","4D","KD","3D","6D","JD","KH","2D","7H","5H","QH","TC","6H","4H","JH","TS","5D","9H","3C","9C","6C","QC","KS","3S","9S","5S","7S","2S","9D","QS","5C","6S","2C","8C","8D","4C","TD","TH"]},{"id":"לוח 8","level":2,"ideas":["שמירת כניסות"],"outcome":"dummywinners","contract":"4S","declarer":"S","dealer":"S","auction":["1S","P","2S","P","4S","P","P","P"],"lead":"QH","hands":{"N":"432.9874.KQJT.Q5","E":"9765.K.A97532.K2","S":"AKQJT.A6532..A87","W":"8.QJT.864.JT9643"},"throwIn":{"suit":"C","defender":"E"},"keySuit":"D","explanation":"בדומם יש ♦K Q J T, ואצלך אין ♦ בכלל. אין לך שום דרך להגיע אליהם. השליטים של הדומם נגמרים במשיכת השליטים, ואחריה הדומם מנותק.\nהדרך היחידה היא למסור את ההובלה למזרח ולתת לו לפתוח את ה-♦ בעצמו.\n\n1. זכה בהובלה ב-♥A. ה-K של מזרח נופל.\n2. משוך את כל השליטים, ארבעה סיבובים, וקח בדרך את ♣A.\n3. שחק ♣ קטן. מזרח זוכה ב-♣K, ובידו נשארו רק ♦.\n4. מזרח לוקח את ה-♦A ואז חייב להמשיך ב-♦.\n5. ה-Q, ה-J וה-T של הדומם לוקחים שלוש לקיחות.","approved":true,"line":["QH","4H","KH","AH","AS","8S","4S","7S","AC","4C","5C","2C","KS","6C","3S","9S","QS","3C","2S","6S","JS","4D","9H","5S","8C","JC","QC","KC","AD","6H","6D","KD","7D","5H","8D","QD","JD","9D","3H","TC","TD","5D","2H","JH","8H","3D","TS","TH","7C","9C","7H","2D"]},{"id":"לוח 9","level":1,"ideas":[],"outcome":"fork","contract":"6NT","declarer":"S","dealer":"S","auction":["2C","P","2D","P","6NT","P","P","P"],"lead":"5C","hands":{"N":"86542.543.543.43","E":"T97.J872.976.J86","S":"AQ.AKQ.AKQJ.AKQ2","W":"KJ3.T96.T82.T975"},"throwIn":{"suit":"C","defender":"W"},"keySuit":"S","explanation":"יש לך 11 לקיחות בטוחות. שלוש ב-♣, ארבע ב-♦, שלוש ב-♥ ו-♠A. השתים עשרה היא ה-♠Q, והיא תבוא רק אם מערב יוביל ♠.\nאם תוביל ♠ בעצמך, מערב יכסה את ה-Q ב-K ותישאר עם לקיחה אחת בלבד.\n\n1. קח ♣A, ♣K ו-♣Q.\n2. קח ♦A, ♦K ו-♦Q.\n3. קח ♥A, ♥K ו-♥Q. למערב נשארו עכשיו ♠ וקלף ♣ אחד.\n4. שחק את ה-♣ הקטן שנשאר לך. מערב זוכה.\n5. מערב חייב להוביל ♠. ה-Q שלך לוקחת, ואחריה ה-A וה-♦J.","approved":true,"line":["5C","4C","6C","AC","KC","7C","3C","8C","QC","TC","2S","JC","AD","2D","5D","7D","KD","8D","4D","6D","QD","TD","3D","9D","AH","6H","5H","2H","KH","TH","4H","8H","QH","9H","3H","7H","2C","9C","6S","7S","3S","8S","TS","QS","AS","KS","5S","9S","JD","JS","4S","JH"]},{"id":"לוח 10","level":3,"ideas":["הסוואה","סדרת הכנסה לא ברורה"],"outcome":"newsuit","contract":"3NT","declarer":"S","dealer":"S","auction":["2C","P","2D","P","2NT","P","3NT","P","P","P"],"lead":"QS","hands":{"N":"543.8654.874.AJ3","E":"76.KQ.J53.QT9862","S":"AK2.A32.AKQ.K754","W":"QJT98.JT97.T962."},"throwIn":{"suit":"H","defender":"E"},"keySuit":"C","explanation":"ב-♣ יש בדומם A J 3 מול K 7 5 4 בידך. אם תשחק את הסדרה בעצמך תצטרך לנחש איפה ה-Q, והניחוש ייכשל.\nאם מזרח יוביל ♣, כל קלף שיבחר נותן לך לקיחה שלישית.\n\n1. זכה בהובלה ב-♠A וקח את ♠K. למזרח לא נשארו ♠.\n2. קח ♦A, ♦K ו-♦Q. למזרח לא נשארו ♦.\n3. קח ♥A ואז מסור ♥. מזרח זוכה, ובידו נשארו רק ♣.\n4. מזרח חייב להוביל ♣ אל תוך ה-A J של הדומם, והלקיחה התשיעית מגיעה.","approved":true,"line":["QS","5S","7S","AS","KS","JS","4S","6S","AD","2D","4D","3D","KD","6D","8D","5D","QD","TD","7D","JD","AH","7H","6H","KH","3H","JH","8H","QH","2C","5C","TS","3C","4C","9S","AC","6C","JC","QC","KC","TH","2H","9H","5H","TC","8S","3S","9C","2S","9D","4H","8C","7C"]},{"id":"לוח 11","level":1,"ideas":[],"outcome":"fork+ruffsluff","contract":"6S","declarer":"S","dealer":"S","auction":["2C","P","2D","P","2S","P","4S","P","4NT","P","5D","P","6S","P","P","P"],"lead":"2H","hands":{"N":"7642.J43.543.AQ4","E":"53.987.QJT.J9765","S":"AKQJT.AKQ.AK2.32","W":"98.T652.9876.KT8"},"throwIn":{"suit":"D","defender":"E"},"keySuit":"C","explanation":"יש לך 11 לקיחות בטוחות. חמש ב-♠, שלוש ב-♥, ♦A K ו-♣A. השתים עשרה חייבת לבוא מה-♣Q.\nאם תשחק ♣ בעצמך, מזרח יכסה את ה-Q והמזלג ייכשל. תן לו להוביל ♣ אליך.\n\n1. זכה בהובלה ב-♥A ומשוך שליטים. שני סיבובים מספיקים.\n2. קח ♥K ו-♥Q. למזרח לא נשארו ♥.\n3. קח ♦A ו-♦K ואז שחק ♦ שלישי. מזרח זוכה, ולא נשארו לו ♦.\n4. מזרח חייב להוביל ♣. ה-Q של הדומם משחקת אחרונה ולוקחת, וה-A לוקח אחריה.","approved":true,"line":["2H","JH","9H","AH","AS","9S","2S","3S","KS","8S","4S","5S","KH","6H","4H","8H","QH","5H","3H","7H","AD","9D","5D","QD","KD","8D","4D","JD","2D","7D","3D","TD","7C","3C","KC","AC","QC","6C","2C","8C","4C","JC","QS","TC","JS","6D","7S","9C","TS","TH","6S","5C"]},{"id":"לוח 12","level":1,"ideas":[],"outcome":"fork","contract":"4H","declarer":"S","dealer":"S","auction":["1H","P","4H","P","P","P"],"lead":"QS","hands":{"N":"K765.AQT.A84.432","E":"98432.32.T96.Q85","S":"A.KJ985.7532.AJT","W":"QJT.764.KQJ.K976"},"throwIn":{"suit":"D","defender":"W"},"keySuit":"C","explanation":"יש לך שני מפסידים ב-♦ ושניים ב-♣. אם תפתח את ה-♣ בעצמך, מערב ומזרח ייקחו שתי לקיחות ב-♣ והחוזה ייפול.\nהדרך היחידה: לתת למערב להוביל ♣ אל ה-A J T שלך.\n\n1. זכה בהובלה ב-♠A.\n2. משוך שני סיבובי שליט בדומם, וחתוך ♠ ביד.\n3. עבור לדומם ב-♦A וחתוך עוד ♠.\n4. משוך את השליט האחרון ב-♥A. עכשיו אין למגינים שליטים, ולמערב אין ♠.\n5. שחק ♦. מערב זוכה ב-♦Q וממשיך ב-♦J, ושוב זוכה. אחרי זה נשארו לו רק ♣.\n6. מערב חייב להוביל ♣. מזרח שם ♣Q וה-A לוקח.\n7. שחק ♣J. מערב לוקח ב-♣K, וה-♣T שלך לוקח את הלקיחה האחרונה ב-♣.","approved":true,"line":["QS","KS","4S","AS","5H","4H","TH","3H","QH","2H","JH","7H","7S","3S","KH","JS","3D","KD","AD","6D","6S","2S","9H","TS","8H","6H","AH","5C","4D","TD","2D","QD","JD","8D","9D","7D","7C","4C","QC","AC","JC","KC","3C","8C","9C","2C","9S","TC","5D","6C","5S","8S"]},{"id":"לוח 13","level":2,"ideas":["שמירת כניסות"],"outcome":"dummywinners","contract":"3NT","declarer":"S","dealer":"S","auction":["2NT","P","3NT","P","P","P"],"lead":"7S","hands":{"N":"8652.764.KQJT.32","E":"J3.QJT.A98654.T9","S":"AK4.AK5.32.AK765","W":"QT97.9832.7.QJ84"},"throwIn":{"suit":"H","defender":"E"},"keySuit":"D","explanation":"בדומם יש ♦K Q J T, ואין לו שום כניסה אחרת. מזרח מחזיק את ה-♦A ולא ייקח אותו כל עוד נשאר לך ♦ לעבור בו לדומם, ולכן אי אפשר פשוט להגיע אל ה-♦ של הדומם.\nהדרך: להשאיר למזרח רק ♦, ואז הוא יפתח לך את הדומם.\n\n1. זכה בהובלה ב-♠A ומשוך ♠K.\n2. משוך ♣A ו-♣K.\n3. משוך ♥A ו-♥K, ושחק ♥ שלישי. מזרח זוכה.\n4. למזרח נשארו רק ♦. הוא מוביל ♦, וה-K, ה-Q וה-J של הדומם לוקחים שלוש לקיחות.\n\nזה בדיוק תשע: שתיים ב-♠, שתיים ב-♣, שתיים ב-♥ ושלוש ב-♦.","approved":true,"line":["7S","2S","3S","AS","KS","TS","8S","JS","AC","4C","3C","TC","KC","8C","2C","9C","AH","3H","4H","QH","3D","7D","KD","AD","JH","KH","2H","7H","5H","9H","6H","TH","9D","2D","8H","QD","JD","8D","7C","QS","TD","6D","6C","QC","6S","5D","4S","9S","JC","5S","4D","5C"]},{"id":"לוח 14","level":1,"ideas":[],"outcome":"newsuit","contract":"3NT","declarer":"S","dealer":"S","auction":["1NT","P","2C","P","2S","P","3NT","P","P","P"],"lead":"QH","hands":{"N":"K84.K653.K83.AT3","E":"73.82.QJT4.J8754","S":"A652.A7.A652.K96","W":"QJT9.QJT94.97.Q2"},"throwIn":{"suit":"D","defender":"E"},"keySuit":"C","line":["QH","3H","2H","AH","2S","9S","KS","3S","3D","TD","AD","7D","AS","TS","4S","7S","7H","9H","KH","8H","KD","4D","2D","9D","8D","JD","6D","4H","QD","5D","2C","6H","4C","6C","QC","AC","3C","5C","9C","TH","KC","QS","TC","7C","5S","JS","8S","JC","JH","5H","8C","6S"],"explanation":"יש לך שמונה לקיחות מלמעלה: שתיים בכל סדרה. הלקיחה התשיעית נמצאת ב-♣, אבל רק אם המגינים יפתחו את הסדרה. אם תפתח אותה בעצמך, ה-J של מזרח יעצור אותך.\nהדרך: לקחת את הלקיחות הבטוחות שלך, ואז לתת למזרח לזכות ב-♦ כשנשארו לו רק ♣.\n\n1. זכה בהובלה ב-♥A.\n2. משוך ♠K ו-♠A.\n3. משוך ♥K. עכשיו למזרח אין ♠ ואין ♥.\n4. משוך ♦A ו-♦K ושחק ♦ שלישי. מזרח זוכה בשתי לקיחות ♦.\n5. למזרח נשארו רק ♣, והוא חייב להוביל ♣. שחק נמוך מהיד. ה-Q של מערב נופלת, וה-♣A של הדומם זוכה.\n6. מערב כבר זרק ♣, ולכן ה-♣J אצל מזרח. שחק ♣ קטן מהדומם. מזרח משחק נמוך, ואתה שם את ה-♣9. הוא זוכה.\n7. ה-♣K היא הלקיחה התשיעית.","approved":true},{"id":"לוח 15","level":1,"ideas":[],"outcome":"fork","contract":"6H","declarer":"S","dealer":"S","auction":[],"lead":"7D","hands":{"N":"K4.JT82.AQT5.832","E":"QJT9653.9763.3.4","S":"A8.AKQ.J9842.AQ7","W":"72.54.K76.KJT965"},"throwIn":{"suit":"D","defender":"W"},"keySuit":"C","line":["7D","5D","3D","9D","AH","4H","2H","3H","KH","5H","8H","6H","QH","9C","TH","7H","8S","2S","KS","3S","JH","9H","2D","5C","4S","9S","AS","7S","4D","6D","TD","QS","AD","5S","8D","KD","2C","4C","7C","TC","6C","3C","6S","QC","JD","KC","QD","TS","8C","JS","AC","JC"],"explanation":"יש לך 11 לקיחות בטוחות: ארבע בשליט, ♠A ו-♠K, ארבע ב-♦ ו-♣A. הלקיחה ה-12 היא ה-♣Q, והיא תבוא רק אם מערב יוביל ♣. העקיפה ב-♣ נכשלת.\nבלקיחה הראשונה מזרח שם ♦3 ולא ♦K, ולכן ה-♦K אצל מערב.\n\n1. זכה בהובלה ב-♦9 שלך.\n2. משוך ♥A, ♥K ו-♥Q.\n3. שחק ♠ אל ה-K של הדומם, ומשוך ♥J. מהיד זרוק ♦ קטן.\n4. שחק ♠ אל ה-A שלך.\n5. שחק ♦ קטן. מערב שם קלף קטן, ואתה שם את ה-♦10 בדומם. מזרח כבר לא עוקב ב-♦.\n6. משוך ♦A. ה-♦K של מערב נופל.\n7. שחק ♣ קטן מהדומם ושים ♣7 מהיד. מערב זוכה ב-♣10.\n8. למערב נשארו רק ♣. הוא חייב להוביל ♣ לתוך ה-A וה-Q שלך.","from":"bridge_declarer_play, לוח 33 הישן (אושר 21/9/26); הכלל של נקודות הסלם לא חל עליו","approved":true},{"id":"לוח 16","level":1,"ideas":[],"outcome":"fork","contract":"6NT","declarer":"S","dealer":"S","auction":[],"lead":"JC","hands":{"N":"2.65432.AKQ.A432","E":"T643.T87.T9865.7","S":"AKQJ.AQ.432.KQ65","W":"9875.KJ9.J7.JT98"},"throwIn":{"suit":"C","defender":"W"},"keySuit":"H","line":["JC","4C","7C","KC","AS","5S","2S","3S","KS","7S","3C","4S","QS","8S","6H","6S","JS","9S","5H","TS","6C","8C","AC","5D","QD","6D","2D","7D","KD","8D","3D","JD","2C","9D","QC","9C","5C","TC","2H","7H","9H","3H","8H","QH","4D","KH","AD","TD","4H","TH","AH","JH"],"explanation":"יש לך 11 לקיחות מלמעלה: ארבע ב-♠, שלוש ב-♦, שלוש ב-♣ ו-♥A. הלקיחה ה-12 היא ה-♥Q, והיא תבוא רק אם מערב יוביל ♥. העקיפה ב-♥ נכשלת.\n\n1. זכה בהובלה ב-♣K.\n2. משוך ארבעה סיבובי ♠. מהדומם זרוק ♣ אחד ושני ♥.\n3. שחק ♣ אל ה-A של הדומם. מזרח לא עוקב, ולכן כל ה-♣ הנותרים אצל מערב.\n4. משוך ♦Q ו-♦K.\n5. שחק ♣ אל ה-Q שלך, ואז ♣ רביעי. מערב זוכה ב-♣10.\n6. למערב נשארו רק ♥. הוא חייב להוביל ♥ לתוך ה-A וה-Q שלך.\n7. אחר כך ♦A בדומם ו-♥A.","from":"bridge_declarer_play, לוח 34 הישן (אושר 21/9/26); הכלל של נקודות הסלם לא חל עליו","approved":true}];</script>
+<script>
+(() => {
+// ---------------- solver (DDS, same wrapper as engine/dds/index.mjs) ----------------
+let solve;
+function initSolver() {
+  const _solve = Module.cwrap('solve', 'string', ['string', 'string', 'number', 'number']);
+  const SI = { S: 0, H: 1, D: 2, C: 3 };
+  solve = (pbn, trump, plays) => {
+    const buf = Module._malloc(8 * Math.max(1, plays.length));
+    plays.forEach((p, i) => { Module.setValue(buf + i * 8, SI[p.suit], 'i32'); Module.setValue(buf + i * 8 + 4, p.rank, 'i32'); });
+    const r = JSON.parse(_solve(pbn, trump, plays.length, buf));
+    Module._free(buf);
+    // the solver names one card per group of equivalent cards; the rest are in `equals`
+    return r.plays.flatMap((p) => [p.rank, ...(p.equals || [])].map((x) => ({ card: { suit: p.suit, rank: rk(String(x)) }, score: p.score })));
+  };
+}
+
+// ---------------- cards ----------------
+const SUITS = ['S', 'H', 'D', 'C'], SEATS = ['N', 'E', 'S', 'W'];
+const RK = { A: 14, K: 13, Q: 12, J: 11, T: 10 }, NM = { 14: 'A', 13: 'K', 12: 'Q', 11: 'J', 10: '10' };
+const SYM = { S: '♠', H: '♥', D: '♦', C: '♣' };
+const HEB = { N: 'צפון', E: 'מזרח', S: 'דרום', W: 'מערב' };
+const rk = (ch) => RK[ch] || +ch;
+const nm = (r) => NM[r] || String(r);
+const same = (a, b) => a.suit === b.suit && a.rank === b.rank;
+const left = (s) => SEATS[(SEATS.indexOf(s) + 1) % 4];
+const partner = (s) => SEATS[(SEATS.indexOf(s) + 2) % 4];
+const side = (s) => (s === 'N' || s === 'S' ? 'NS' : 'EW');
+const parseHand = (s) => s.split('.').flatMap((t, i) => [...t.replace(/-/g, '')].map((ch) => ({ suit: SUITS[i], rank: rk(ch) })));
+const parseCard = (s) => ({ rank: rk(s.slice(0, -1) === '10' ? 'T' : s[0]), suit: s.slice(-1) });
+const pbnHand = (h) => SUITS.map((s) => h.filter((c) => c.suit === s).sort((a, b) => b.rank - a.rank).map((c) => c.rank === 10 ? 'T' : nm(c.rank)).join('')).join('.');
+const fmtHand = (h) => SUITS.map((s) => h.filter((c) => c.suit === s).sort((a, b) => b.rank - a.rank).map((c) => c.rank === 10 ? 'T' : nm(c.rank)).join('') || '-').join('.');
+const cardHtml = (c, cls = '') => `<span class="card c ${c.suit === 'H' || c.suit === 'D' ? 'red' : ''} ${cls}">${nm(c.rank)}${SYM[c.suit]}</span>`;
+const bidHtml = (b) => {
+  if (b === 'P') return 'פס';
+  if (b === 'X') return '<bdi>X</bdi>';
+  if (b === 'XX') return '<bdi>XX</bdi>';
+  const st = b.slice(1);
+  return `<bdi class="bid">${b[0]}${st === 'NT' ? 'NT' : `<span style="color:${st === 'H' || st === 'D' ? 'var(--red)' : 'inherit'}">${SYM[st]}</span>`}</bdi>`;
+};
+
+// ---------------- game state ----------------
+let B, G, busy = false, replayTimer = null, showDef = false, history = [];
+
+function newGame(board) {
+  B = board;
+  const hands = Object.fromEntries(SEATS.map((s) => [s, parseHand(board.hands[s])]));
+  const lvl = +board.contract[0], strain = board.contract.slice(1) === 'NT' ? 'NT' : board.contract[1];
+  G = {
+    hands, strain, trump: strain === 'NT' ? null : strain, needed: lvl + 6,
+    declarer: board.declarer, dummy: partner(board.declarer),
+    leader: left(board.declarer), turn: left(board.declarer), plays: [], won: { NS: 0, EW: 0 },
+    played: [], tricks: [], voids: Object.fromEntries(SEATS.map((s) => [s, {}])), lastLedBy: { NS: null, EW: null },
+    discarded: Object.fromEntries(SEATS.map((s) => [s, {}])), swaps: [], over: false, open: false, replay: false,
+  };
+}
+const legal = (seat) => {
+  const h = G.hands[seat];
+  if (!G.plays.length) return h;
+  const f = h.filter((c) => c.suit === G.plays[0].card.suit);
+  return f.length ? f : h;
+};
+function beats(c, w) {
+  const led = G.plays.length ? G.plays[0].card.suit : c.suit;
+  if (G.trump && c.suit === G.trump && w.suit !== G.trump) return true;
+  if (c.suit === w.suit && c.rank > w.rank) return true;
+  return false;
+}
+function winning() {
+  let best = G.plays[0];
+  for (const p of G.plays.slice(1)) if (beatsOn(p.card, best.card)) best = p;
+  return best;
+}
+function beatsOn(c, w) {
+  if (G.trump && c.suit === G.trump && w.suit !== G.trump) return true;
+  return c.suit === w.suit && c.rank > w.rank;
+}
+function doPlay(card) {
+  const seat = G.turn;
+  const led = G.plays.length ? G.plays[0].card.suit : null;
+  if (led && card.suit !== led) G.voids[seat][led] = true;
+  if (led && card.suit !== led && card.suit !== G.trump) G.discarded[seat][card.suit] = (G.discarded[seat][card.suit] || 0) + 1;
+  if (!led) G.lastLedBy[side(seat)] = card.suit;
+  G.hands[seat] = G.hands[seat].filter((c) => !same(c, card));
+  G.plays.push({ seat, card });
+  G.played.push({ seat, card });
+  if (G.plays.length === 4) {
+    const w = winning();
+    G.won[side(w.seat)]++;
+    G.tricks.push({ plays: G.plays.slice(), winner: w.seat });
+    G.leader = w.seat; G.turn = w.seat;
+    return true;
+  }
+  G.turn = left(seat);
+  return false;
+}
+function solverChoices() {
+  const h = {};
+  for (const s of SEATS) h[s] = G.hands[s].slice();
+  for (const p of G.plays) h[p.seat].push(p.card);
+  const order = [];
+  let i = SEATS.indexOf(G.leader);
+  for (let k = 0; k < 4; k++) order.push(SEATS[(i + k) % 4]);
+  const pbn = G.leader + ':' + order.map((s) => pbnHand(h[s])).join(' ');
+  return solve(pbn, G.trump || 'N', G.plays.map((p) => p.card));
+}
+
+// ---------------- defence: human rules first, solver only where no rule applies ----------------
+// cards a defender cannot see: not his own, not dummy's, not played
+function unseenBy(seat) {
+  const out = [];
+  for (const s of SEATS) if (s !== seat && s !== G.dummy) out.push(...G.hands[s].map((c) => ({ ...c, holder: s })));
+  return out;
+}
+// no unplayed card of that suit higher than c anywhere outside this hand
+const isTop = (seat, c) => !SEATS.some((s) => s !== seat && G.hands[s].some((x) => x.suit === c.suit && x.rank > c.rank));
+// can an opponent still to play in this trick beat c? dummy is read from its cards, declarer from what is unseen
+function sure(seat, c) {
+  const pos = G.plays.length;
+  for (let k = 1; k < 4 - pos; k++) {
+    const s = SEATS[(SEATS.indexOf(seat) + k) % 4];
+    if (side(s) === side(seat)) continue;
+    const led = G.plays.length ? G.plays[0].card.suit : c.suit;
+    const cand = s === G.dummy ? G.hands[s] : unseenBy(seat).filter((x) => x.holder !== partner(seat));
+    const hasLed = s === G.dummy ? G.hands[s].some((x) => x.suit === led) : !G.voids[s][led];
+    for (const x of cand) {
+      if (hasLed) { if (x.suit === led && x.suit === c.suit && x.rank > c.rank) return false; }
+      else if (G.trump && x.suit === G.trump && (c.suit !== G.trump || x.rank > c.rank)) return false;
+    }
+  }
+  return true;
+}
+const lowest = (cs) => cs.slice().sort((a, b) => a.rank - b.rank)[0];
+const byRankAsc = (cs) => cs.slice().sort((a, b) => a.rank - b.rank);
+// lowest of the cards equivalent to c in this hand (no outside unplayed card between them)
+function lowestEquivalent(seat, c) {
+  const mine = G.hands[seat].filter((x) => x.suit === c.suit).sort((a, b) => b.rank - a.rank);
+  const outside = new Set(SEATS.filter((s) => s !== seat).flatMap((s) => G.hands[s].filter((x) => x.suit === c.suit).map((x) => x.rank)));
+  let cur = c;
+  for (const x of mine) {
+    if (x.rank >= cur.rank) continue;
+    let gap = false;
+    for (let r = x.rank + 1; r < cur.rank; r++) if (outside.has(r)) gap = true;
+    if (gap) break;
+    cur = x;
+  }
+  return cur;
+}
+// tricks my holding takes when declarer plays the suit out: each round one hand plays its top card,
+// the other its lowest; I win with the cheapest card that beats it, otherwise I play low
+function suitTricks(mine, a, b) {
+  const m = mine.map((c) => c.rank).sort((x, y) => x - y);
+  const A = a.map((c) => c.rank).sort((x, y) => y - x), Bh = b.map((c) => c.rank).sort((x, y) => y - x);
+  let won = 0;
+  const rounds = Math.max(A.length, Bh.length);
+  for (let r = 0; r < rounds && m.length; r++) {
+    let top;
+    if (A.length && (!Bh.length || A[0] >= Bh[0])) { top = A.shift(); Bh.pop(); } else { top = Bh.shift(); A.pop(); }
+    const i = m.findIndex((x) => x > top);
+    if (i >= 0) { m.splice(i, 1); won++; } else m.shift();
+  }
+  return won;
+}
+function discard(seat) {
+  const h = G.hands[seat];
+  const suits = SUITS.filter((s) => h.some((c) => c.suit === s));
+  let bestSuit = null, bestSpare = -1;
+  for (const s of suits) {
+    if (s === G.trump && suits.length > 1) continue;
+    const cs = h.filter((c) => c.suit === s);
+    // keep the honour and a guard (Itzik's rule), and as many of the top cards as it takes to win
+    // every trick this suit is worth against declarer's two hands
+    let keep = cs.some((c) => c.rank >= 11 && !isTop(seat, c)) ? 2 : 0;
+    const a = G.hands[G.dummy].filter((c) => c.suit === s), b = G.hands[G.declarer].filter((c) => c.suit === s);
+    const desc = cs.slice().sort((x, y) => y.rank - x.rank);
+    const full = suitTricks(desc, a, b);
+    let need = 0;
+    while (need < desc.length && suitTricks(desc.slice(0, need), a, b) < full) need++;
+    keep = Math.max(keep, need);
+    const spare = cs.length - keep;
+    if (spare > bestSpare || (spare === bestSpare && cs.length > h.filter((c) => c.suit === bestSuit).length)) { bestSpare = spare; bestSuit = s; }
+  }
+  if (bestSpare <= 0) {                         // no rule fits: the solver decides
+    const ch = solverChoices(); const m = Math.max(...ch.map((x) => x.score));
+    return ch.find((x) => x.score === m).card;
+  }
+  const cs = byRankAsc(h.filter((c) => c.suit === bestSuit));
+  const spareCards = cs.slice(0, bestSpare);
+  const wanted = cs.some((c) => isTop(seat, c) || c.rank >= 12);
+  const first = !G.discarded[seat][bestSuit];
+  return wanted && first ? spareCards[spareCards.length - 1] : spareCards[0];   // signal: high = want it
+}
+function ruffOrDiscard(seat, mustWin) {
+  const trumps = G.trump ? G.hands[seat].filter((c) => c.suit === G.trump) : [];
+  if (mustWin && trumps.length) {
+    const cur = winning().card;
+    const ok = byRankAsc(trumps).filter((c) => beatsOn(c, cur) && sure(seat, c));
+    if (ok.length) return ok[0];
+  }
+  return discard(seat);
+}
+// one suit on its own, both sides perfect: how many tricks declarer's side takes in it when
+// `first` leads the first round. After that only declarer's side leads it (from either hand) -
+// a defender who wins a round exits elsewhere. Tells a lead that gives a trick away.
+function suitSolve(hands, first) {
+  const memo = new Map();
+  const toArr = (h) => SEATS.map((s) => h[s].join(',')).join('|');
+  function round(h, l) {
+    const s4 = [0, 1, 2, 3].map((k) => SEATS[(SEATS.indexOf(l) + k) % 4]);
+    const walk = (i, cards, hh) => {
+      if (i === 4) {
+        let w = -1;
+        for (let k = 0; k < 4; k++) if (cards[k] !== null && (w < 0 || cards[k] > cards[w])) w = k;
+        return (side(s4[w]) === 'NS' ? 1 : 0) + rest(hh);
+      }
+      const s = s4[i], mine = hh[s];
+      if (!mine.length) return walk(i + 1, [...cards, null], hh);
+      let bv = null;
+      for (const r of new Set(mine)) {
+        const j = mine.indexOf(r);
+        const v = walk(i + 1, [...cards, r], { ...hh, [s]: mine.filter((x, k) => k !== j) });
+        if (bv === null || (side(s) === 'NS' ? v > bv : v < bv)) bv = v;
+      }
+      return bv;
+    };
+    return walk(0, [], h);
+  }
+  function rest(h) {
+    if (!h.N.length && !h.S.length) return 0;
+    const key = toArr(h);
+    if (memo.has(key)) return memo.get(key);
+    let v = 0;
+    for (const l of ['N', 'S']) if (h[l].length) v = Math.max(v, round(h, l));
+    memo.set(key, v);
+    return v;
+  }
+  return first === 'N' || first === 'S' ? rest(hands) : round(hands, first);
+}
+// does leading this suit hand declarer a trick he could not take by leading it himself?
+function leadCosts(seat, suit) {
+  const h = {};
+  for (const s of SEATS) h[s] = G.hands[s].filter((c) => c.suit === suit).map((c) => c.rank);
+  if (!h.N.length && !h.S.length) return false;
+  const theirs = suitSolve(h, 'N');
+  return suitSolve(h, seat) > theirs;
+}
+function leadCard(seat) {
+  const ch = solverChoices();
+  const score = (c) => ch.find((x) => same(x.card, c)).score;
+  let pool = G.hands[seat];
+  // no ruff and discard unless there is no choice
+  const rs = (c) => G.trump && c.suit !== G.trump && !G.hands[G.dummy].some((x) => x.suit === c.suit) && G.voids[G.declarer][c.suit]
+    && (G.hands[G.dummy].some((x) => x.suit === G.trump) || !G.voids[G.declarer][G.trump]);
+  const noRs = pool.filter((c) => !rs(c));
+  if (noRs.length) pool = noRs;
+  const best = Math.max(...pool.map(score));
+  // keep on with the suit this side started, unless it gives declarer a trick
+  const cont = G.lastLedBy.EW;
+  if (cont) {
+    const inSuit = pool.filter((c) => c.suit === cont && score(c) === best && !leadCosts(seat, c.suit));
+    if (inSuit.length) return lowest(inSuit);
+  }
+  let top = pool.filter((c) => score(c) === best);
+  // among leads the solver rates equal, keep away from a suit where the lead itself gives a trick
+  const safe = top.filter((c) => !leadCosts(seat, c.suit));
+  if (safe.length) top = safe;
+  const suit = top[0].suit;
+  return lowest(top.filter((c) => c.suit === suit));
+}
+// exception (Itzik): a defender does not win with an ace when that sets up a suit for a dummy
+// that has no other way in; he takes it once declarer has no card left in the suit to cross with
+function holdUp(seat, c) {
+  if (c.rank !== 14 || c.suit === G.trump) return false;
+  const su = c.suit, dm = G.hands[G.dummy], decl = G.declarer;
+  const dmSuit = dm.filter((x) => x.suit === su);
+  if (dmSuit.length < 2) return false;
+  const dmTop = Math.max(...dmSuit.map((x) => x.rank));
+  // when dummy's own card is winning the trick, ducking only gives dummy the trick and the lead
+  // (removed 24/9/26: not in rules/endplay.md; board 13 lost a trick to it)
+  // the ace must be the defenders' only card that stops dummy's suit
+  if ([seat, partner(seat)].some((s) => G.hands[s].some((x) => x.suit === su && x.rank > dmTop && !same(x, c)))) return false;
+  const entry = dm.some((x) => x.suit !== su && !SEATS.some((s) => s !== G.dummy && G.hands[s].some((y) => y.suit === x.suit && y.rank > x.rank)));
+  if (entry || (G.trump && dm.some((x) => x.suit === G.trump))) return false;
+  const declPlayed = G.plays.some((p) => p.seat === decl);
+  const declLeft = G.hands[decl].filter((x) => x.suit === su).length - (declPlayed ? 0 : 1);
+  return declLeft >= 1;
+}
+function defend() {
+  const c = defendRaw();
+  if (G.plays.length && c.suit === G.plays[0].card.suit && holdUp(G.turn, c)) {
+    const low = G.hands[G.turn].filter((x) => x.suit === c.suit && x.rank !== 14);
+    if (low.length) return lowest(low);
+  }
+  return c;
+}
+function defendRaw() {
+  const seat = G.turn, pos = G.plays.length;
+  if (pos === 0) return leadCard(seat);
+  const led = G.plays[0].card.suit;
+  const follow = G.hands[seat].filter((c) => c.suit === led);
+  const cur = winning();
+  const partnerWins = side(cur.seat) === side(seat);
+  const beating = follow.filter((c) => beatsOn(c, cur.card));
+  if (pos === 1) {
+    if (!follow.length) return ruffOrDiscard(seat, true);
+    // a sure winner, but not when partner holds a higher card in the suit: a K that beats
+    // the table while partner holds the A wastes the K (board 12)
+    const partnerHigher = (c) => G.hands[partner(seat)].some((x) => x.suit === c.suit && x.rank > c.rank);
+    const sureW = byRankAsc(beating.filter((c) => sure(seat, c) && !partnerHigher(c)));
+    if (sureW.length) return sureW[0];
+    if (cur.card.rank >= 11) {                      // cover an honour with an honour
+      const cover = byRankAsc(beating.filter((c) => c.rank >= 11));
+      if (cover.length) return cover[0];
+    }
+    const desc = follow.slice().sort((a, b) => b.rank - a.rank);
+    if (desc.length >= 3 && desc[0].rank >= 11) {   // sequence KQJ: play the lowest of it
+      let n = 1;
+      while (n < desc.length && desc[n].rank === desc[n - 1].rank - 1) n++;
+      if (n >= 3) return desc[n - 1];
+    }
+    return lowest(follow);
+  }
+  if (pos === 2) {
+    if (!follow.length) return ruffOrDiscard(seat, !(partnerWins && sure(seat, cur.card)));
+    if (partnerWins && sure(seat, cur.card)) return lowest(follow);
+    const sureW = byRankAsc(beating.filter((c) => sure(seat, c)));
+    if (sureW.length) return sureW[0];
+    if (beating.length) {                           // third hand high, lowest of touching cards
+      const high = follow.slice().sort((a, b) => b.rank - a.rank)[0];
+      return lowestEquivalent(seat, high);
+    }
+    return lowest(follow);
+  }
+  // fourth
+  if (!follow.length) return ruffOrDiscard(seat, !partnerWins);
+  if (!partnerWins && beating.length) return byRankAsc(beating)[0];
+  return lowest(follow);
+}
+
+// ---------------- automatic swap: a finesse always fails ----------------
+// declarer's side plays third a card that wins the trick so far but is not its highest in the suit
+function maybeSwap(card) {
+  if (G.plays.length !== 2 || side(G.turn) !== 'NS') return;
+  const led = G.plays[0].card.suit;
+  if (card.suit !== led) return;
+  const cur = winning().card;
+  if (!beatsOn(card, cur)) return;                  // a card that does not win: not a finesse
+  if (!G.hands[G.turn].some((c) => c.suit === led && c.rank > card.rank)) return;
+  const second = G.plays[1].seat, fourth = left(G.turn);
+  const higher = (s) => G.hands[s].filter((c) => c.suit === led && c.rank > card.rank);
+  if (higher(fourth).length) return;                // already fails
+  const h = byRankAsc(higher(second))[0];
+  if (!h) return;
+  const lockd = new Set(B.locked || []);
+  const small = byRankAsc(G.hands[fourth].filter((c) => c.suit === led && c.rank < card.rank));
+  const x = small.find((c) => !lockd.has(nm(c.rank) + c.suit));
+  if (!x || lockd.has(nm(h.rank) + h.suit)) return;
+  G.hands[second] = G.hands[second].filter((c) => !same(c, h)).concat([x]);
+  G.hands[fourth] = G.hands[fourth].filter((c) => !same(c, x)).concat([h]);
+  G.swaps.push({ card: h, from: second, to: fourth });
+}
+
+// ---------------- flow ----------------
+const $ = (id) => document.getElementById(id);
+// the table is drawn the same way as on every other exercise page (finesse.html and the rest):
+// one line of cards per hand in the suit order below, face-down backs for a hand the student
+// cannot see, and the trick in the square in the middle
+const HAND_ORDER = ['S', 'H', 'C', 'D'];
+const RANKCH = { 14: 'A', 13: 'K', 12: 'Q', 11: 'J', 10: 'T' };
+const rankBtn = (s, c, can, revealed) => `<button class="rank-btn${c.suit === 'H' || c.suit === 'D' ? ' red' : ''}${revealed ? ' revealed' : ''}"` +
+  ` data-s="${s}" data-c="${c.rank}${c.suit}"${can ? '' : ' disabled'}><span class="card-rank">${RANKCH[c.rank] || c.rank}</span><span class="card-suit">${SYM[c.suit]}</span></button>`;
+function render() {
+  const over = G.open;
+  for (const s of SEATS) {
+    const show = over || showDef || side(s) === 'NS';
+    const mine = !G.over && !G.replay && side(s) === 'NS' && G.turn === s && !busy;
+    const leg = mine ? legal(s) : [];
+    $('title' + s).textContent = s === G.declarer ? `כרוז (${HEB[s]})` : s === G.dummy ? `דומם (${HEB[s]})` : HEB[s];
+    const hand = HAND_ORDER.flatMap((su) => G.hands[s].filter((c) => c.suit === su).sort((a, b) => b.rank - a.rank));
+    $('hand' + s).innerHTML = show
+      ? hand.map((c) => rankBtn(s, c, leg.some((x) => same(x, c)), side(s) === 'EW' || over)).join('')
+      : hand.map(() => '<div class="rank-back"></div>').join('') + `<span class="hand-count"><bdi>${hand.length}</bdi> קלפים</span>`;
+    $('hand' + s).onclick = (e) => {
+      const b = e.target && e.target.closest ? e.target.closest('button[data-c]') : null;
+      if (!b || b.disabled) return;
+      studentPlay({ rank: +b.dataset.c.slice(0, -1), suit: b.dataset.c.slice(-1) });
+    };
+    $('seat' + s).classList.toggle('turn', !G.over && G.turn === s);
+  }
+  $('tableEl').classList.toggle('table--revealed', !!over);
+  $('undo').disabled = !history.length || G.replay || busy;
+  const played = new Set(G.plays.map((p) => p.seat));
+  $('trickArea').innerHTML = G.plays.map((p) => `<div class="trick-t${p.seat.toLowerCase()}"><div class="card-btn${p.card.suit === 'H' || p.card.suit === 'D' ? ' red' : ''}">${SYM[p.card.suit]}${RANKCH[p.card.rank] || p.card.rank}</div></div>`).join('') +
+    SEATS.filter((s) => !played.has(s)).map((s) => `<div class="trick-t${s.toLowerCase()}"><div class="compass-letter">${s}</div></div>`).join('');
+  const ds = side(G.declarer);
+  $('info').innerHTML = `לקיחות שלך: <bdi class="num">${G.won[ds]}</bdi> מתוך <bdi class="num">${G.needed}</bdi><br>` +
+    `לקיחות ההגנה: <bdi class="num">${G.won[ds === 'NS' ? 'EW' : 'NS']}</bdi>`;
+}
+function renderStatic() {
+  const lvl = B.level ? ` · רמה <bdi class="num">${B.level}</bdi>` : '';
+  $('title').innerHTML = `חוזה ${bidHtml(B.contract)} · כרוז ${HEB[B.declarer]}${lvl}`;
+  const cols = ['W', 'N', 'E', 'S'];
+  let html = cols.map((s) => `<div class="h">${HEB[s]}</div>`).join('');
+  const bids = B.auction || [];
+  const start = cols.indexOf(B.dealer || 'N');
+  html += '<div></div>'.repeat(start) + bids.map((b) => `<div>${bidHtml(b)}</div>`).join('');
+  $('auction').innerHTML = bids.length ? html : '<span style="direction:rtl">אין מהלך הכרזה</span>';
+  $('reviewBar').classList.toggle('hidden', !!B.approved);
+  $('endBox').classList.add('hidden');
+  $('tricksBox').classList.add('hidden');
+  $('step').classList.add('hidden');
+  $('againRow').classList.add('hidden');
+  $('solution').classList.remove('hidden');
+}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function afterCard(done) {
+  render();
+  if (done) {
+    busy = true; await wait(1000); G.plays = []; busy = false;
+    if (!G.hands.N.length) return finish();
+    render();
+  }
+  if (!G.over && side(G.turn) === 'EW') {
+    busy = true; await wait(650); busy = false;
+    const c = defend();
+    if (window.__onDefend) window.__onDefend(c);
+    afterCard(doPlay(c));
+  }
+}
+// one step back: the state is kept before every card the student plays
+function snapshot() {
+  return JSON.stringify({ hands: G.hands, plays: G.plays, won: G.won, turn: G.turn, leader: G.leader,
+    played: G.played, tricks: G.tricks, voids: G.voids, discarded: G.discarded, lastLedBy: G.lastLedBy, swaps: G.swaps, last: G.last });
+}
+function undo() {
+  if (!history.length || G.replay) return;
+  busy = false;
+  Object.assign(G, JSON.parse(history.pop()), { over: false, open: false });
+  $('endBox').classList.add('hidden'); $('tricksBox').classList.add('hidden');
+  render();
+  if (side(G.turn) === 'EW') afterCard(false);
+}
+function studentPlay(card) {
+  if (busy || G.over || side(G.turn) !== 'NS') return;
+  history.push(snapshot());
+  maybeSwap(card);
+  afterCard(doPlay(card));
+}
+const tries = {}; // finished attempts per board; the explanation waits for a success or a second attempt
+function finish() {
+  G.over = true; G.open = true;
+  const ds = side(G.declarer), got = G.won[ds];
+  const diff = got - G.needed;
+  let res = `לקחת <bdi class="num">${got}</bdi> לקיחות. `;
+  res += diff >= 0 ? (diff ? `ביצעת עם <bdi class="num">${diff}</bdi> לקיחות עודפות.` : 'ביצעת בדיוק.') : `נפלת ב-<bdi class="num">${-diff}</bdi>.`;
+  tries[B.id] = (tries[B.id] || 0) + 1;
+  const open = diff >= 0 || tries[B.id] >= 2;
+  $('againRow').classList.toggle('hidden', open);
+  $('solution').classList.toggle('hidden', !open);
+  if (open && G.swaps.length) res += '<br>' + G.swaps.map((w) => `ניסית עקיפה, ו-${cardHtml(w.card)} עבר מ${HEB[w.from]} ל${HEB[w.to]}.`).join('<br>');
+  $('result').innerHTML = res;
+  $('expl').innerHTML = (B.explanation || '').replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch])
+    .replace(/[A-Z0-9♠♥♦♣][A-Z0-9♠♥♦♣-]*/g, (m) => `<bdi>${m}</bdi>`);
+  $('handsLine').textContent = SEATS.map((s) => s + ' ' + B.hands[s]).join('  ');
+  $('endBox').classList.remove('hidden');
+  renderTricks();
+  render();
+  if ($('endBox').scrollIntoView) $('endBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+// every trick of the game: who led, the four cards, who won
+function renderTricks() {
+  let h = '<table class="play"><tr><th>#</th><th>מוביל</th><th>1</th><th>2</th><th>3</th><th>4</th><th>לוקח</th></tr>';
+  G.tricks.forEach((t, i) => {
+    h += `<tr class="${side(t.winner) === 'NS' ? 'ns' : 'ew'}"><td><bdi class="num">${i + 1}</bdi></td><td>${HEB[t.plays[0].seat]}</td>` +
+      t.plays.map((p) => `<td>${cardHtml(p.card)}</td>`).join('') + `<td>${HEB[t.winner]}</td></tr>`;
+  });
+  $('tricks').innerHTML = h + '</table>';
+  $('tricksBox').classList.remove('hidden');
+}
+let startGen = 0;
+async function start() {
+  const gen = ++startGen;
+  if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
+  newGame(B);
+  history = [];
+  renderStatic();
+  render();
+  busy = true; await wait(500); busy = false;
+  if (gen !== startGen) return; // a newer start took over
+  afterCard(doPlay(parseCard(B.lead.length === 2 ? B.lead : B.lead)));
+}
+// ---------------- replay of the correct line ----------------
+let rp = null;
+function replayStart() {
+  newGame(B); G.open = true; G.replay = true;
+  rp = { i: 0, line: (B.line || []).map((s) => ({ rank: rk(s[0]), suit: s[1] })) };
+  renderStatic(); $('endBox').classList.remove('hidden'); $('step').classList.remove('hidden');
+  $('result').innerHTML = 'הקו הנכון, קלף אחרי קלף.';
+  render();
+}
+async function replayStep() {
+  if (!rp || busy) return;
+  if (!G.plays.length && G.plays.length === 0 && rp.pendingClear) rp.pendingClear = false;
+  if (rp.i >= rp.line.length) { $('result').innerHTML = `סוף הקו הנכון: <bdi class="num">${G.won[side(G.declarer)]}</bdi> לקיחות.`; return; }
+  const done = doPlay(rp.line[rp.i++]);
+  render();
+  if (done) { busy = true; await wait(700); G.plays = []; busy = false; render(); }
+}
+
+// ---------------- boot ----------------
+function boot() {
+  initSolver();
+  const pick = $('pick');
+  const boards = window.BOARDS || [];
+  pick.innerHTML = boards.map((b, i) => `<option value="${i}">${b.id || 'לוח ' + (i + 1)}${b.approved ? '' : ' (לבדיקה)'}</option>`).join('');
+  pick.onchange = () => { B = boards[+pick.value]; start(); };
+  $('restart').onclick = () => start();
+  $('undo').onclick = undo;
+  $('showDef').onclick = () => { showDef = !showDef; $('showDef').textContent = showDef ? 'הסתר ידי הגנה' : 'הצג ידי הגנה'; if (G) render(); };
+  $('replay').onclick = replayStart;
+  $('step').onclick = replayStep;
+  $('again').onclick = () => start();
+  if (boards.length) { B = boards[0]; start(); }
+}
+if (Module.calledRun) boot(); else Module.onRuntimeInitialized = boot;
+// test hook, read only by tools
+window.__T = { get G() { return G; }, setBoard(b) { B = b; }, start, studentPlay, solverChoices, side, replayStart, replayStep, suitSolve, get busy() { return busy; } };
+})();
+</script>
+</body>
+</html>
